@@ -1,5 +1,6 @@
-import gleam/io
+@external(erlang, "server_runtime", "start")
+fn start_runtime() -> Nil
 
 pub fn main() -> Nil {
-  io.println("Hello from server!")
+  start_runtime()
 }
