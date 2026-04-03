@@ -1,0 +1,12 @@
+.openapi-generator-ignore
+README.md
+gleam.toml
+src/gleam_server/handlers/widgets.gleam
+src/gleam_server/http.gleam
+src/gleam_server/models/analyze_result.gleam
+src/gleam_server/models/error.gleam
+src/gleam_server/models/widget.gleam
+src/gleam_server/models/widget_list.gleam
+src/gleam_server/models/widget_merge_patch_update.gleam
+src/gleam_server/router.gleam
+src/gleam_server/routes/widgets.gleam

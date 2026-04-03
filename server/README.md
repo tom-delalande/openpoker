@@ -1,24 +1,16 @@
-# server
+# gleam_server
 
-[![Package Version](https://img.shields.io/hexpm/v/server)](https://hex.pm/packages/server)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/server/)
+Generated Gleam server library core for a Wisp application.
 
-```sh
-gleam add server@1
-```
-```gleam
-import server
+## Generated layout
 
-pub fn main() -> Nil {
-  // TODO: An example of the project in use
-}
-```
+- `src/gleam_server/router.gleam`: top-level Wisp request dispatcher
+- `src/gleam_server/routes/*.gleam`: route modules grouped by OpenAPI tag
+- `src/gleam_server/handlers/*.gleam`: editable handler stubs
+- `src/gleam_server/models/*.gleam`: generated request and response models
 
-Further documentation can be found at <https://hexdocs.pm/server>.
+## Using the generated code
 
-## Development
+Import `gleam_server/router` into your existing Wisp application and call `handle_request/1` from your server entrypoint.
 
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
-```
+Handler modules return placeholder `501` responses by default and are intended to be edited by hand.
