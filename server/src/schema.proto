@@ -1,32 +1,166 @@
 syntax = "proto3";
-package tutorial;
+
+package openpoker.v1;
 
 import "google/protobuf/timestamp.proto";
 
-message Person {
-  string name = 1;
-  int32 id = 2;  // Unique ID number for this person.
-  string email = 3;
+// Poker hand history schema based on the Open Hand History action model.
+// Reference: https://hh-specs.handhistory.org/ (spec_version 1.4.7 at time of implementation)
 
-  enum PhoneType {
-    PHONE_TYPE_UNSPECIFIED = 0;
-    PHONE_TYPE_MOBILE = 1;
-    PHONE_TYPE_HOME = 2;
-    PHONE_TYPE_WORK = 3;
-  }
-
-  message PhoneNumber {
-    string number = 1;
-    PhoneType type = 2;
-  }
-
-  repeated PhoneNumber phones = 4;
-
-  google.protobuf.Timestamp last_updated = 5;
+message HandHistory {
+  string spec_version = 1;
+  string site_name = 2;
+  string network_name = 3;
+  string internal_version = 4;
+  bool tournament = 5;
+  string game_number = 6;
+  google.protobuf.Timestamp start_date_utc = 7;
+  string table_name = 8;
+  string table_handle = 9;
+  string table_skin = 10;
+  string game_type = 11;
+  BetLimit bet_limit = 12;
+  int32 table_size = 13;
+  string currency = 14;
+  int32 dealer_seat = 15;
+  double small_blind_amount = 16;
+  double big_blind_amount = 17;
+  double ante_amount = 18;
+  int32 hero_player_id = 19;
+  repeated string flags = 20;
+  repeated Player players = 21;
+  repeated Round rounds = 22;
+  repeated Pot pots = 23;
+  TournamentInfo tournament_info = 24;
+  repeated TournamentBounty tournament_bounties = 25;
 }
 
-// Our address book file is just one of these.
-message AddressBook {
-  repeated Person people = 1;
+message BetLimit {
+  string type = 1;
+  double small_bet_amount = 2;
+  double big_bet_amount = 3;
+  double cap_amount = 4;
 }
 
+message TournamentInfo {
+  string tournament_number = 1;
+  string tournament_name = 2;
+  double buy_in = 3;
+  double rake = 4;
+  double bounty = 5;
+  string level = 6;
+  string speed = 7;
+}
+
+message TournamentBounty {
+  int32 player_id = 1;
+  double amount = 2;
+}
+
+message Player {
+  int32 id = 1;
+  string name = 2;
+  int32 seat = 3;
+  double starting_stack = 4;
+  double stack = 5;
+  repeated string hole_cards = 6;
+  bool hero = 7;
+  bool sitting_out = 8;
+}
+
+message Round {
+  int32 id = 1;
+  Street street = 2;
+  repeated string cards = 3;
+  repeated Action actions = 4;
+}
+
+enum Street {
+  STREET_UNSPECIFIED = 0;
+  STREET_PRE_FLOP = 1;
+  STREET_FLOP = 2;
+  STREET_TURN = 3;
+  STREET_RIVER = 4;
+  STREET_SHOWDOWN = 5;
+  STREET_SUMMARY = 6;
+}
+
+message Action {
+  int32 action_number = 1;
+  // Open Hand History allows player_id to be omitted for "Add to Pot".
+  // In this proto, 0 means the action is not associated with a specific player.
+  int32 player_id = 2;
+  double amount = 3;
+  bool is_all_in = 4;
+  repeated string cards = 5;
+
+  oneof kind {
+    DealtCards dealt_cards = 10;
+    MucksCards mucks_cards = 11;
+    ShowsCards shows_cards = 12;
+    PostAnte post_ante = 13;
+    PostSmallBlind post_small_blind = 14;
+    PostBigBlind post_big_blind = 15;
+    PostStraddle post_straddle = 16;
+    PostDeadBlind post_dead_blind = 17;
+    PostExtraBlind post_extra_blind = 18;
+    Fold fold = 19;
+    Check check = 20;
+    Bet bet = 21;
+    Raise raise = 22;
+    Call call = 23;
+    AddedChips added_chips = 24;
+    SitsDown sits_down = 25;
+    StandsUp stands_up = 26;
+    AddToPot add_to_pot = 27;
+  }
+}
+
+message DealtCards {}
+
+message MucksCards {}
+
+message ShowsCards {}
+
+message PostAnte {}
+
+message PostSmallBlind {}
+
+message PostBigBlind {}
+
+message PostStraddle {}
+
+message PostDeadBlind {}
+
+message PostExtraBlind {}
+
+message Fold {}
+
+message Check {}
+
+message Bet {}
+
+message Raise {}
+
+message Call {}
+
+message AddedChips {}
+
+message SitsDown {}
+
+message StandsUp {}
+
+message AddToPot {}
+
+message Pot {
+  int32 number = 1;
+  double amount = 2;
+  double rake = 3;
+  repeated PlayerWin player_wins = 4;
+}
+
+message PlayerWin {
+  int32 player_id = 1;
+  double win_amount = 2;
+  double contributed_rake = 3;
+}
