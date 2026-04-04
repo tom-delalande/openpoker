@@ -1,1 +1,1 @@
-gleam run -m protozoa/dev src/schema.proto src
+gleam run -m protozoa/dev src/table.proto src

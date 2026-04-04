@@ -1,0 +1,226 @@
+syntax = "proto3";
+
+package openpoker.v1;
+
+message TableEvent {
+  oneof kind {
+    DealtCards dealt_cards = 1;
+    MucksCards mucks_cards = 2;
+    ShowsCards shows_cards = 3;
+    PostAnte post_ante = 4;
+    PostSmallBlind post_small_blind = 5;
+    PostBigBlind post_big_blind = 6;
+    PostStraddle post_straddle = 7;
+    PostDeadBlind post_dead_blind = 8;
+    PostExtraBlind post_extra_blind = 9;
+    Fold fold = 10;
+    Check check = 11;
+    Bet bet = 12;
+    Raise raise = 13;
+    Call call = 15;
+    AddedChips added_chips = 16;
+    SitsDown sits_down = 17;
+    StandsUp stands_up = 18;
+    AddToPot add_to_pot = 19;
+
+    RequestPlayerAction requested_player_action = 20;
+    DealTableCards dealt_table_cards = 21;
+    DealPrivateCards dealt_private_cards = 22;
+  }
+  message DealtCards {
+    string player_id = 1;
+    repeated string card_string = 2;
+  }
+
+  message MucksCards {
+    int32 player_id = 1;
+  }
+
+  message ShowsCards {
+    int32 player_id = 1;
+    repeated string card_string = 2;
+  }
+
+  message PostAnte {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message PostSmallBlind {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message PostBigBlind {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message PostStraddle {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message PostDeadBlind {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message PostExtraBlind {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message Fold {
+    int32 player_id = 1;
+  }
+
+  message Check {
+    int32 player_id = 1;
+  }
+
+  message Bet {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message Raise {
+    int32 player_id = 1;
+    double amount = 2;
+    bool is_allin = 3;
+  }
+
+  message Call {
+    int32 player_id = 1;
+  }
+
+  message AddedChips {
+    int32 player_id = 1;
+    double amount = 2;
+  }
+
+  message SitsDown {
+    int32 player_id = 1;
+  }
+
+  message StandsUp {
+    int32 player_id = 1;
+  }
+
+  message AddToPot {
+    int32 player_id = 1;
+    double amount = 2;
+  }
+
+  message RequestPlayerAction {}
+
+  message DealTableCards {}
+
+  message DealPrivateCards {}
+}
+
+message TableAction {
+  oneof kind {
+    MuckCards mucks_cards = 1;
+    ShowCards shows_cards = 2;
+    PostAnte post_ante = 3;
+    PostSmallBlind post_small_blind = 4;
+    PostBigBlind post_big_blind = 5;
+    PostStraddle post_straddle = 6;
+    PostDeadBlind post_dead_blind = 7;
+    PostExtraBlind post_extra_blind = 8;
+    Fold fold = 9;
+    Check check = 10;
+    Bet bet = 11;
+    Raise raise = 12;
+    Call call = 13;
+    AddChips added_chips = 14;
+  }
+
+  message PostAnte {}
+  message PostSmallBlind {}
+  message PostBigBlind {}
+  message PostStraddle {}
+  message PostDeadBlind {}
+  message PostExtraBlind {}
+  message Fold {}
+  message Check {}
+  message Bet {}
+  message Raise {}
+  message Call {}
+  message MuckCards {}
+  message ShowCards {}
+  message AddChips {}
+}
+
+message RequestedActionOption {
+  oneof kind {
+    PostSmallBlind post_small_blind = 1;
+    PostBigBlind post_big_blind = 2;
+    PostStraddle post_straddle = 3;
+    PostDeadBlind post_dead_blind = 4;
+    PostExtraBlind post_extra_blind = 5;
+    Fold fold = 6;
+    Check check = 7;
+    Bet bet = 8;
+    Raise raise = 9;
+    Call call = 10;
+  }
+  message PostSmallBlind {
+    double amount = 1;
+  }
+
+  message PostBigBlind {
+    double amount = 1;
+  }
+
+  message PostStraddle {
+    double amount = 1;
+  }
+
+  message PostDeadBlind {
+    double amount = 1;
+  }
+
+  message PostExtraBlind {
+    double amount = 1;
+  }
+
+  message Fold {}
+
+  message Bet {
+    double min_amount = 1;
+    double max_amount = 2;
+  }
+
+  message Check {}
+
+  message Raise {
+    double min_amount = 1;
+    double max_amount = 2;
+  }
+
+  message Call {
+    double amount = 1;
+  }
+}
+
+message Pot {
+  int32 number = 1;
+  double amount = 2;
+  double rake = 3;
+  repeated PlayerWin player_wins = 4;
+}
+
+message PlayerWin {
+  int32 player_id = 1;
+  double win_amount = 2;
+  double contributed_rake = 3;
+}
