@@ -1,6 +1,6 @@
 @file:Suppress("NAME_SHADOWING")
 
-package logic
+package domain.table
 
 import kotlin.math.min
 

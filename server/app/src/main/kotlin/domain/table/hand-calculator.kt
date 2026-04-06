@@ -1,4 +1,4 @@
-package logic
+package domain.table
 
 data class HandRating(
     val handStrength: String,

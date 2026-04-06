@@ -52,7 +52,9 @@ dependencies {
     implementation("io.grpc:grpc-netty-shaded")
     implementation("io.grpc:grpc-kotlin-stub:1.5.0")
 
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
 
     implementation("redis.clients:jedis:7.4.1")
     implementation("org.postgresql:postgresql:42.7.10")

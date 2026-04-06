@@ -1,4 +1,4 @@
-package logic
+package domain.table
 
 import kotlin.math.floor
 
