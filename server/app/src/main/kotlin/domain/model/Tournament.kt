@@ -13,7 +13,7 @@ data class Tournament(
         val startTime: Instant? = null,
         val type: TournamentType,
         val speed: Speed,
-        val initialStack: Double,
+        val startingStack: Double,
         val players: List<Player>,
         val status: Status,
     ) {

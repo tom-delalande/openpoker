@@ -1,6 +1,6 @@
 package domain.model
 
-import kotlin.time.Instant
+import java.time.Instant
 
 data class Table(
     val gameType: GameType,
@@ -13,7 +13,45 @@ data class Table(
     val players: List<Player>,
     val rounds: List<Round>,
     val pots: List<Pot>,
+    val seed: Long,
 ) {
+
+    val currentRound: Round
+        get() = rounds.last()
+
+    val playerActions: List<Round.Action.PlayerAction>
+        get() = rounds.flatMap { it.actions }.filterIsInstance<Round.Action.PlayerAction>()
+
+    val currentRaise: Double
+        get() = currentRound
+            .actions
+            .filterIsInstance<Round.Action.PlayerAction.Raise>()
+            .last()
+            .amount
+
+    val currentRaiseByPlayer: Map<Int, Double>
+        get() = currentRound
+            .actions
+            .filterIsInstance<Round.Action.PlayerAction.Raise>()
+            .groupBy { it.playerId }
+            .mapValues { it.value.maxOf { it.amount } }
+
+    // TODO: Actually calculate current stack
+    val currentStackByPlayer: Map<Int, Double>
+        get() = players.associate { it.id to it.startingStack }
+
+    val smallBlindPlayer: Player
+        get() = players[dealerSeat.nextSeat()]
+
+    val bigBlindPlayer: Player
+        get() = players[dealerSeat.nextSeat().nextSeat()]
+
+    val currentNumberOfCards: Int
+        get() = rounds.sumOf { it.cards.size } +
+                playerActions.filterIsInstance<Round.Action.PlayerAction.DealCards>().sumOf { it.cards.size }
+
+    fun Int.nextSeat() = (this + 1) % players.size
+
     enum class GameType {
         HoldEm,
     }
@@ -50,7 +88,7 @@ data class Table(
         }
 
         sealed interface Action {
-            sealed interface PlayerAction {
+            sealed interface PlayerAction : Action {
                 val playerId: Int
 
                 data class RequestAction(
@@ -70,6 +108,7 @@ data class Table(
                         object Fold : ActionOption
                         object Check : ActionOption
                         data class Bet(val minAmount: Double, val maxAmount: Double?) : ActionOption
+                        data class Call(val amount: Double) : ActionOption
                         data class Raise(val minAmount: Double, val maxAmount: Double?) : ActionOption
                     }
                 }
@@ -158,10 +197,6 @@ data class Table(
                     override val playerId: Int,
                 ) : PlayerAction
             }
-
-            data class AddToPot(
-                val amount: Double,
-            ) : Action
         }
     }
 
