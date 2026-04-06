@@ -2,6 +2,10 @@ syntax = "proto3";
 
 package openpoker.v1;
 
+service TableService {
+  rpc Connect(stream TableAction) returns (stream TableEvent);
+}
+
 message TableEvent {
   oneof kind {
     DealtCards dealt_cards = 1;
