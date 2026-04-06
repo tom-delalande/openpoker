@@ -70,7 +70,6 @@ fun TableConfig.withRound(street: Table.Round.Street, work: RoundConfig.() -> Un
         Table.Round(
             id = rounds.size,
             street = street,
-            cards = config.cards,
             actions = config.actions,
         )
     )
@@ -115,26 +114,10 @@ fun TableConfig.withPreFlopRound() {
     }
 }
 
-fun requestAction(
-    playerId: Int,
-    actionOptions: List<Table.Round.Action.PlayerAction.RequestAction.ActionOption>,
-    expiry: Instant = wellKnownTimestamp.plusSeconds(DEFAULT_TIMEOUT_IN_SECONDS),
-): Table.Round.Action.PlayerAction.RequestAction {
-    return Table.Round.Action.PlayerAction.RequestAction(
-        playerId = playerId,
-        actionOptions = actionOptions,
-        expiry = expiry,
-    )
-}
-
 data class RoundConfig(
     var actions: MutableList<Table.Round.Action> = mutableListOf(),
     var cards: MutableList<Table.Card> = mutableListOf(),
 )
-
-fun RoundConfig.withCards(vararg cards: Table.Card) {
-    this.cards.addAll(cards.toList())
-}
 
 fun RoundConfig.withAction(action: Table.Round.Action) {
     actions.add(action)

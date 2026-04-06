@@ -5,7 +5,6 @@ import domain.model.Table.Card.Suit
 import kotlin.test.assertEquals
 import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption as ActionOption
 import domain.model.Table.Round.Action.PlayerAction.*
-import kotlin.math.min
 import org.junit.jupiter.api.Test
 
 class TableLogicTest {
@@ -23,7 +22,6 @@ class TableLogicTest {
             Table.Round(
                 id = 0,
                 street = Table.Round.Street.PreFlop,
-                cards = listOf(),
                 actions = listOf(
                     DealCards(
                         2,
@@ -270,13 +268,16 @@ class TableLogicTest {
         )
 
         assertEquals(2, table.rounds.size)
-        assertEquals(1, table.rounds[1].actions.size)
+        assertEquals(2, table.rounds[1].actions.size)
         assertEquals(
-            listOf(
-                Table.Card(suit = Suit.Diamonds, rank = 8),
-                Table.Card(suit = Suit.Spades, rank = 4),
-                Table.Card(suit = Suit.Clubs, rank = 11)
-            ), table.rounds[1].cards
+            Table.Round.Action.DealCommunityCards(
+                listOf(
+                    Table.Card(suit = Suit.Diamonds, rank = 8),
+                    Table.Card(suit = Suit.Spades, rank = 4),
+                    Table.Card(suit = Suit.Clubs, rank = 11)
+                )
+            ),
+            table.rounds[1].actions[0],
         )
         assertEquals(
             RequestAction(
@@ -288,7 +289,7 @@ class TableLogicTest {
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(10),
             ),
-            table.rounds[1].actions[0],
+            table.rounds[1].actions[1],
         )
     }
 }

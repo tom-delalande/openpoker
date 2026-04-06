@@ -47,7 +47,9 @@ data class Table(
         get() = players[dealerSeat.nextSeat().nextSeat()]
 
     val currentNumberOfCards: Int
-        get() = rounds.sumOf { it.cards.size } +
+        get() = rounds.sumOf {
+            it.actions.filterIsInstance<Round.Action.DealCommunityCards>().sumOf { it.cards.size }
+        } +
                 playerActions.filterIsInstance<Round.Action.PlayerAction.DealCards>().sumOf { it.cards.size }
 
     fun Int.nextSeat() = (this + 1) % players.size
@@ -76,7 +78,6 @@ data class Table(
     data class Round(
         val id: Int,
         val street: Street,
-        val cards: List<Card>,
         val actions: List<Action>,
     ) {
         enum class Street {
@@ -197,6 +198,10 @@ data class Table(
                     override val playerId: Int,
                 ) : PlayerAction
             }
+
+            data class DealCommunityCards(
+                val cards: List<Card>,
+            ) : Action
         }
     }
 

@@ -52,7 +52,6 @@ fun Table.dealInitialCards(): Table {
             Round(
                 id = 0,
                 street = Round.Street.PreFlop,
-                cards = emptyList(),
                 actions = emptyList(),
             )
         )
@@ -123,16 +122,14 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
 }
 
 private fun Table.attemptFinishRound(): Table {
-    if (currentRound.street == Round.Street.Showdown) {
-        // Do Showdown stuff here
-    }
     val lastAction = playerActions.filterNot { it is RequestAction }.last()
     val lastActionPlayer = players.find { it.id == lastAction.playerId }
-    val lastRaiseAction = playerActions.findLast { it is Raise || it is PostSmallBlind || it is PostBigBlind }
+    val lastRaiseAction = playerActions.dropLast(1).findLast { it is Raise || it is PostBigBlind }
 
     if (lastRaiseAction?.playerId == lastActionPlayer?.id) {
-        if (currentRound.street == Round.Street.River) {
-            // Finish Hand
+        if (currentRound.street == Round.Street.River || currentStackByPlayer.values.all { it == 0.0 }) {
+            // TODO: Add showdown events if necessary
+            // TODO: Finish Hand
             return this
         } else {
             val street = when (currentRound.street) {
@@ -143,20 +140,20 @@ private fun Table.attemptFinishRound(): Table {
                 Round.Street.Showdown,
                     -> throw IllegalStateException("Cannot go to next round, you should have finished hand.")
             }
+            val cards = when (street) {
+                Round.Street.PreFlop -> emptyList()
+                Round.Street.Flop -> getCards(3)
+                Round.Street.Turn -> getCards(1)
+                Round.Street.River -> getCards(1)
+                Round.Street.Showdown -> emptyList()
+            }
             return copy(
                 rounds = rounds.plus(
                     Round(
                         id = currentRound.id + 1,
                         street = street,
-                        cards = when (street) {
-                            Round.Street.PreFlop -> emptyList()
-                            Round.Street.Flop -> getCards(3)
-                            Round.Street.Turn -> getCards(1)
-                            Round.Street.River -> getCards(1)
-                            Round.Street.Showdown -> emptyList()
-                        },
                         actions = listOf(
-
+                            Round.Action.DealCommunityCards(cards)
                         )
                     )
                 )
