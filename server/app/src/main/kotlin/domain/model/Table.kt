@@ -26,8 +26,8 @@ data class Table(
         get() = currentRound
             .actions
             .filterIsInstance<Round.Action.PlayerAction.Raise>()
-            .last()
-            .amount
+            .lastOrNull()
+            ?.amount ?: 0.0
 
     val currentRaiseByPlayer: Map<Int, Double>
         get() = currentRound

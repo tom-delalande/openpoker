@@ -11,7 +11,14 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 
-fun create(tournamentDetails: Tournament.Details) {
+const val DEFAULT_SMALL_BLIND_AMOUNT = 5.0
+const val DEFAULT_BIG_BLIND_AMOUNT = 5.0
+const val DEFAULT_TIMEOUT_IN_SECONDS = 10L
+
+fun createTable(
+    tournamentDetails: Tournament.Details,
+    seed: Long = Random.nextLong(),
+): Table {
     val table = Table(
         gameType = Table.GameType.HoldEm,
         betLimit = Table.BetLimit(
@@ -20,10 +27,10 @@ fun create(tournamentDetails: Tournament.Details) {
         ),
         tableSize = tournamentDetails.players.size,
         dealerSeat = 0,
-        smallBlindAmount = 2.0,
-        bigBlindAmount = 4.0,
+        smallBlindAmount = DEFAULT_SMALL_BLIND_AMOUNT,
+        bigBlindAmount = DEFAULT_BIG_BLIND_AMOUNT,
         anteAmount = 6.0,
-        players = tournamentDetails.players.shuffled().mapIndexed { index, player ->
+        players = tournamentDetails.players.mapIndexed { index, player ->
             Table.Player(
                 id = player.id,
                 name = player.name,
@@ -32,41 +39,52 @@ fun create(tournamentDetails: Tournament.Details) {
                 isSittingOut = false,
             )
         },
+        rounds = listOf(),
+        pots = listOf(),
+        seed = seed,
+    )
+
+    return table
+}
+
+fun Table.dealInitialCards(): Table {
+    return copy(
         rounds = listOf(
-            Table.Round(
+            Round(
                 id = 0,
-                street = Table.Round.Street.PreFlop,
+                street = Round.Street.PreFlop,
                 cards = emptyList(),
                 actions = emptyList(),
             )
-        ),
-        pots = listOf(),
-        seed = Random.nextLong(),
-    )
-        .dealInitialCards()
+        )
+    ).dealCards()
 }
 
-private fun Table.dealInitialCards(): Table {
+private fun Table.dealCards(): Table {
     val cards = getCards(players.size * 2)
-    return players.foldIndexed(this) { index, table, player ->
+    val firstSeat = dealerSeat.nextSeat()
+    val orderedPLayers = (firstSeat..<firstSeat + players.size).map { it % players.size }
+    return orderedPLayers.fold(this) { table, seat ->
+        val player = players[seat]
         table.appendAction(
             DealCards(
                 playerId = player.id,
-                cards = cards.subList(index, index + 1)
+                cards = cards.subList(2 * seat, 2 * seat + 2)
             )
         )
     }
 }
 
-private fun Table.processTable(now: Instant): Table {
+fun Table.processTable(now: Instant): Table {
     return when (val latestAction = currentRound.actions.last()) {
         is RequestAction -> {
             if (latestAction.expiry.isBefore(now)) {
                 this
                     .timeoutCurrentActionRequest(latestAction)
                     .requestNextAction(now)
+            } else {
+                this
             }
-            this
         }
 
         else -> {
@@ -77,12 +95,32 @@ private fun Table.processTable(now: Instant): Table {
     }
 }
 
+// TODO: Maybe this action type should be it's own interface
+fun Table.processPlayerAction(playerId: Int, action: Round.Action.PlayerAction, now: Instant): Table {
+    val lastAction = playerActions.last()
+    if (lastAction !is RequestAction) {
+        throw IllegalStateException("Unexpected action. playerId[$playerId] action[$action] lastEvent[$lastAction]")
+    }
+    if (lastAction.playerId != playerId) {
+        throw IllegalStateException("Unexpected action for player. playerId[$playerId] expectedPlayerId[${lastAction.playerId}]")
+    }
+
+    // TODO: Check action is in action options
+
+    return appendAction(action)
+        .requestNextAction(now)
+}
+
 private fun Table.getCards(numberOfCards: Int): List<Table.Card> {
+    return getCards(seed, currentNumberOfCards, numberOfCards)
+}
+
+fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
     return Table.Card.Suit.entries.toList().flatMap { suit ->
         (1..13).map { rank ->
             Table.Card(suit, rank)
         }
-    }.shuffled(Random(seed)).subList(currentNumberOfCards, currentNumberOfCards + numberOfCards)
+    }.shuffled(Random(seed)).subList(offset, offset + numberOfCards)
 }
 
 private fun Table.attemptFinishRound(): Table {
@@ -93,7 +131,7 @@ private fun Table.attemptFinishRound(): Table {
     val lastActionPlayer = players.find { it.id == lastAction.playerId }
     val lastPlayerToRaise = playerActions.findLast { it is Raise }
 
-    val nextPlayer = players[players.indexOf(lastActionPlayer) + 1 % players.size]
+    val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
     if (lastPlayerToRaise == nextPlayer) {
         if (currentRound.street == Round.Street.River) {
             // Finish Hand
@@ -132,9 +170,9 @@ private fun Table.requestNextAction(now: Instant): Table {
     val lastAction = playerActions.last()
     val lastActionPlayer = players.find { it.id == lastAction.playerId }
 
-    val nextPlayer = players.get(players.indexOf(lastActionPlayer) + 1 % players.size)
+    val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
 
-    val playerRaise = currentRaiseByPlayer[nextPlayer.id]!!
+    val playerRaise = currentRaiseByPlayer[nextPlayer.id] ?: 0.0
     val playerStack = currentStackByPlayer[nextPlayer.id]!!
 
     val actionOptions = buildList {
