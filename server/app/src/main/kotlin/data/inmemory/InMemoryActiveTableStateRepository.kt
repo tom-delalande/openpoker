@@ -1,0 +1,19 @@
+package data.inmemory
+
+import domain.model.Table
+import domain.table.ActiveTable
+import domain.table.ActiveTableStateRepository
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+
+class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
+    private val tables: MutableMap<UUID, ActiveTable> = ConcurrentHashMap()
+
+    override fun getActiveTables(): List<ActiveTable> {
+        return tables.values.toList()
+    }
+
+    override fun set(id: UUID, table: Table) {
+        tables[id] = ActiveTable(id, table)
+    }
+}

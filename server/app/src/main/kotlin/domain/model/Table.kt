@@ -13,6 +13,7 @@ data class Table(
     val players: List<Player>,
     val rounds: List<Round>,
     val pots: List<Pot>,
+    val isFinished: Boolean = false,
     val seed: Long,
 ) {
 
@@ -36,7 +37,7 @@ data class Table(
             .groupBy { it.playerId }
             .mapValues { it.value.maxOf { it.amount } }
 
-    // TODO: Actually calculate current stack
+    // TODO: [high] Actually calculate current stack
     val currentStackByPlayer: Map<Int, Double>
         get() = players.associate { it.id to it.startingStack }
 

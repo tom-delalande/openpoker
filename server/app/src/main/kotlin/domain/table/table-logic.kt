@@ -93,7 +93,7 @@ fun Table.processTable(now: Instant): Table {
 
 fun Table.processPostAction(now: Instant): Table = attemptFinishRound().requestNextAction(now)
 
-// TODO: Maybe this action type should be it's own interface
+// TODO: [low] Maybe this action type should be it's own interface
 fun Table.processPlayerAction(playerId: Int, action: Round.Action.PlayerAction, now: Instant): Table {
     val lastAction = playerActions.last()
     if (lastAction !is RequestAction) {
@@ -103,7 +103,7 @@ fun Table.processPlayerAction(playerId: Int, action: Round.Action.PlayerAction, 
         throw IllegalStateException("Unexpected action for player. playerId[$playerId] expectedPlayerId[${lastAction.playerId}]")
     }
 
-    // TODO: Check action is in action options
+    // TODO: [medium] Check action is in action options
 
     return appendAction(action)
         .processPostAction(now)
@@ -128,8 +128,8 @@ private fun Table.attemptFinishRound(): Table {
 
     if (lastRaiseAction?.playerId == lastActionPlayer?.id) {
         if (currentRound.street == Round.Street.River || currentStackByPlayer.values.all { it == 0.0 }) {
-            // TODO: Add showdown events if necessary
-            // TODO: Finish Hand
+            // TODO: [medium] Add showdown events if necessary
+            // TODO: [high] Finish Hand
             return this
         } else {
             val street = when (currentRound.street) {

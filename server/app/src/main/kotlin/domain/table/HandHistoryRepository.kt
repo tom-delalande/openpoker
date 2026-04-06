@@ -1,10 +1,9 @@
 package domain.table
 
 import domain.model.OpenHandHistory
+import domain.model.Table
 import java.util.UUID
 
 interface HandHistoryRepository {
-    fun saveHand(id: UUID, hand: OpenHandHistory)
-    fun getHandById(id: UUID): OpenHandHistory
-    fun listHandIdsByTournamentId(id: UUID): List<UUID>
+    fun saveHand(id: UUID, hand: Table)
 }
