@@ -1,14 +1,16 @@
 package domain.table
 
 import domain.model.Table
+import domain.model.Table.Card.Suit
 import kotlin.test.assertEquals
 import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption as ActionOption
 import domain.model.Table.Round.Action.PlayerAction.*
+import kotlin.math.min
 import org.junit.jupiter.api.Test
 
 class TableLogicTest {
     @Test
-    fun `given tournament with set seed and 3 players, when dealing initial cards, then 6 cards are dealt`() {
+    fun `given table with set seed and 3 players, when dealing initial cards, then 6 cards are dealt`() {
         val initialTable = givenWellKnownTournamentTable {
             withSeed(1)
             withDefaultPlayers(3)
@@ -51,7 +53,7 @@ class TableLogicTest {
     }
 
     @Test
-    fun `given tournament with dealt cards, when processing table, then action requested with small blind or fold`() {
+    fun `given table with dealt cards, when processing table, then action requested with small blind or fold`() {
         val initialTable = givenWellKnownTournamentTable {
             withSeed(1)
             withDefaultPlayers(3)
@@ -75,7 +77,7 @@ class TableLogicTest {
     }
 
     @Test
-    fun `given tournament with dealt cards and small blind action requested, when processing table after timeout, then small blind folds and big blind requested`() {
+    fun `given table with dealt cards and small blind action requested, when processing table after timeout, then small blind folds and big blind requested`() {
         val initialTable = givenWellKnownTournamentTable {
             withSeed(1)
             withDefaultPlayers(3)
@@ -112,7 +114,7 @@ class TableLogicTest {
     }
 
     @Test
-    fun `given tournament with dealt cards and small blind action requested, when player posts small blind, then small blind posted and big blind requested`() {
+    fun `given table with dealt cards and small blind action requested, when player posts small blind, then small blind posted and big blind requested`() {
         val initialTable = givenWellKnownTournamentTable {
             withSeed(1)
             withDefaultPlayers(3)
@@ -151,6 +153,142 @@ class TableLogicTest {
                 expiry = wellKnownTimestamp.plusSeconds(10),
             ),
             table.rounds[0].actions[5],
+        )
+    }
+
+    @Test
+    fun `given table with big blind requested, when big blind posts, then under the gun has actions requested`() {
+        val initialTable = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDefaultPlayers(3)
+            withDealtCards()
+            withAction(PostSmallBlind(2, DEFAULT_SMALL_BLIND_AMOUNT, false))
+            withAction(
+                RequestAction(
+                    3,
+                    actionOptions = listOf(ActionOption.Fold, ActionOption.PostBigBlind(DEFAULT_BIG_BLIND_AMOUNT)),
+                    expiry = wellKnownTimestamp.plusSeconds(DEFAULT_TIMEOUT_IN_SECONDS)
+                )
+            )
+        }
+
+        val table = initialTable.processPlayerAction(
+            playerId = 3,
+            PostBigBlind(3, DEFAULT_BIG_BLIND_AMOUNT, false),
+            wellKnownTimestamp,
+        )
+
+        assertEquals(7, table.rounds[0].actions.size)
+        assertEquals(
+            PostBigBlind(
+                playerId = 3,
+                amount = DEFAULT_BIG_BLIND_AMOUNT,
+                isAllIn = false,
+            ),
+            table.rounds[0].actions[5],
+        )
+        assertEquals(
+            RequestAction(
+                playerId = 1,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Check,
+                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 1000.0),
+                ),
+                expiry = wellKnownTimestamp.plusSeconds(10),
+            ),
+            table.rounds[0].actions[6],
+        )
+    }
+
+    @Test
+    fun `given table with under the gun requested, when utg checks, then small blind player action requested`() {
+        val initialTable = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDefaultPlayers(3)
+            withDealtCards()
+            withAction(PostSmallBlind(2, DEFAULT_SMALL_BLIND_AMOUNT, false))
+            withAction(PostBigBlind(3, DEFAULT_BIG_BLIND_AMOUNT, false))
+            withAction(
+                RequestAction(
+                    1,
+                    actionOptions = listOf(ActionOption.Check),
+                    expiry = wellKnownTimestamp.plusSeconds(DEFAULT_TIMEOUT_IN_SECONDS)
+                )
+            )
+        }
+
+        val table = initialTable.processPlayerAction(
+            playerId = 1,
+            Check(1),
+            wellKnownTimestamp,
+        )
+
+        assertEquals(8, table.rounds[0].actions.size)
+        assertEquals(
+            Check(playerId = 1),
+            table.rounds[0].actions[6],
+        )
+        assertEquals(
+            RequestAction(
+                playerId = 2,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Check,
+                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 1000.0),
+                ),
+                expiry = wellKnownTimestamp.plusSeconds(10),
+            ),
+            table.rounds[0].actions[7],
+        )
+    }
+
+
+    @Test
+    fun `given utg and small blind checks, when big blind checks, then round is finished and community cards are dealt and small blind action requested`() {
+        val initialTable = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDefaultPlayers(3)
+            withDealtCards()
+            withAction(PostSmallBlind(2, DEFAULT_SMALL_BLIND_AMOUNT, false))
+            withAction(PostBigBlind(3, DEFAULT_BIG_BLIND_AMOUNT, false))
+            withAction(Check(1))
+            withAction(Check(2))
+            withAction(
+                RequestAction(
+                    3,
+                    actionOptions = listOf(ActionOption.Check),
+                    expiry = wellKnownTimestamp.plusSeconds(DEFAULT_TIMEOUT_IN_SECONDS)
+                )
+            )
+        }
+
+        val table = initialTable.processPlayerAction(
+            playerId = 3,
+            Check(3),
+            wellKnownTimestamp,
+        )
+
+        assertEquals(2, table.rounds.size)
+        assertEquals(1, table.rounds[1].actions.size)
+        assertEquals(
+            listOf(
+                Table.Card(suit = Suit.Diamonds, rank = 8),
+                Table.Card(suit = Suit.Spades, rank = 4),
+                Table.Card(suit = Suit.Clubs, rank = 11)
+            ), table.rounds[1].cards
+        )
+        assertEquals(
+            RequestAction(
+                playerId = 2,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Check,
+                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 1000.0)
+                ),
+                expiry = wellKnownTimestamp.plusSeconds(10),
+            ),
+            table.rounds[1].actions[0],
         )
     }
 }

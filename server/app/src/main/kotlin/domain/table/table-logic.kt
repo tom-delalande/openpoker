@@ -6,7 +6,6 @@ import domain.model.Tournament
 import java.time.Instant
 import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption as ActionOption
 import domain.model.Table.Round.Action.PlayerAction.*
-import kotlin.collections.indexOf
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
@@ -81,19 +80,19 @@ fun Table.processTable(now: Instant): Table {
             if (latestAction.expiry.isBefore(now)) {
                 this
                     .timeoutCurrentActionRequest(latestAction)
-                    .requestNextAction(now)
+                    .processPostAction(now)
             } else {
                 this
             }
         }
 
         else -> {
-            this
-                .attemptFinishRound()
-                .requestNextAction(now)
+            processPostAction(now)
         }
     }
 }
+
+fun Table.processPostAction(now: Instant): Table = attemptFinishRound().requestNextAction(now)
 
 // TODO: Maybe this action type should be it's own interface
 fun Table.processPlayerAction(playerId: Int, action: Round.Action.PlayerAction, now: Instant): Table {
@@ -108,7 +107,7 @@ fun Table.processPlayerAction(playerId: Int, action: Round.Action.PlayerAction, 
     // TODO: Check action is in action options
 
     return appendAction(action)
-        .requestNextAction(now)
+        .processPostAction(now)
 }
 
 private fun Table.getCards(numberOfCards: Int): List<Table.Card> {
@@ -127,12 +126,11 @@ private fun Table.attemptFinishRound(): Table {
     if (currentRound.street == Round.Street.Showdown) {
         // Do Showdown stuff here
     }
-    val lastAction = playerActions.last()
+    val lastAction = playerActions.filterNot { it is RequestAction }.last()
     val lastActionPlayer = players.find { it.id == lastAction.playerId }
-    val lastPlayerToRaise = playerActions.findLast { it is Raise }
+    val lastRaiseAction = playerActions.findLast { it is Raise || it is PostSmallBlind || it is PostBigBlind }
 
-    val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
-    if (lastPlayerToRaise == nextPlayer) {
+    if (lastRaiseAction?.playerId == lastActionPlayer?.id) {
         if (currentRound.street == Round.Street.River) {
             // Finish Hand
             return this
@@ -157,7 +155,9 @@ private fun Table.attemptFinishRound(): Table {
                             Round.Street.River -> getCards(1)
                             Round.Street.Showdown -> emptyList()
                         },
-                        actions = listOf()
+                        actions = listOf(
+
+                        )
                     )
                 )
             )
@@ -167,8 +167,8 @@ private fun Table.attemptFinishRound(): Table {
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
-    val lastAction = playerActions.last()
-    val lastActionPlayer = players.find { it.id == lastAction.playerId }
+    val lastAction = currentRound.actions.filterIsInstance<Round.Action.PlayerAction>().lastOrNull()
+    val lastActionPlayer = players.find { it.id == lastAction?.playerId } ?: players[dealerSeat]
 
     val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
 
@@ -176,19 +176,23 @@ private fun Table.requestNextAction(now: Instant): Table {
     val playerStack = currentStackByPlayer[nextPlayer.id]!!
 
     val actionOptions = buildList {
-        if (currentRound.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id) {
+        if (currentRound.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id && playerActions.filterIsInstance<PostSmallBlind>()
+                .none()
+        ) {
             add(ActionOption.Fold)
             add(ActionOption.PostSmallBlind(amount = min(smallBlindAmount, playerStack)))
             return@buildList
         }
 
-        if (currentRound.street == Round.Street.PreFlop && nextPlayer.id == bigBlindPlayer.id) {
+        if (currentRound.street == Round.Street.PreFlop && nextPlayer.id == bigBlindPlayer.id && playerActions.filterIsInstance<PostBigBlind>()
+                .none()
+        ) {
             add(ActionOption.Fold)
             add(ActionOption.PostBigBlind(amount = min(bigBlindAmount, playerStack)))
             return@buildList
         }
 
-        if (playerStack < currentRaise) {
+        if (playerRaise <= currentRaise) {
             add(ActionOption.Fold)
         }
 
