@@ -1,6 +1,6 @@
 package domain.table
 
-import domain.table.model.OpenHandHistory
+import domain.model.OpenHandHistory
 import java.util.UUID
 
 interface HandHistoryRepository {

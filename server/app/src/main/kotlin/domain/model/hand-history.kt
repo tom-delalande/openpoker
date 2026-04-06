@@ -1,4 +1,4 @@
-package domain.table.model
+package domain.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

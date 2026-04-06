@@ -1,4 +1,6 @@
-package domain.table.model
+package domain.model
+
+import kotlin.time.Instant
 
 data class Table(
     val gameType: GameType,
@@ -46,99 +48,120 @@ data class Table(
             River,
             Showdown,
         }
+
         sealed interface Action {
             sealed interface PlayerAction {
                 val playerId: Int
-                
+
+                data class RequestAction(
+                    override val playerId: Int,
+                    val actionOptions: List<ActionOption>,
+                    val expiry: Instant,
+                ) : PlayerAction {
+                    sealed interface ActionOption {
+                        object MuckCards : ActionOption
+                        object ShowCards : ActionOption
+                        data class PostAnte(val amount: Double) : ActionOption
+                        data class PostSmallBlind(val amount: Double) : ActionOption
+                        data class PostBigBlind(val amount: Double) : ActionOption
+                        data class PostStraddle(val amount: Double) : ActionOption
+                        data class PostDeadBlind(val amount: Double) : ActionOption
+                        data class PostExtraBlind(val amount: Double) : ActionOption
+                        object Fold : ActionOption
+                        object Check : ActionOption
+                        data class Bet(val minAmount: Double, val maxAmount: Double?) : ActionOption
+                        data class Raise(val minAmount: Double, val maxAmount: Double?) : ActionOption
+                    }
+                }
+
                 data class DealCards(
                     override val playerId: Int,
                     val cards: List<Card>,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class MuckCards(
                     override val playerId: Int,
                     val cards: List<Card>,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class ShowCards(
                     override val playerId: Int,
                     val cards: List<Card>,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class PostAnte(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class PostSmallBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class PostBigBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class PostStraddle(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class PostDeadBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class PostExtraBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class Fold(
                     override val playerId: Int,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class Check(
                     override val playerId: Int,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class Bet(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class Raise(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class AddChips(
                     override val playerId: Int,
                     val amount: Double,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class SitDown(
                     override val playerId: Int,
-                ): PlayerAction
+                ) : PlayerAction
 
                 data class StandUp(
                     override val playerId: Int,
-                ): PlayerAction
-
-
+                ) : PlayerAction
             }
+
             data class AddToPot(
                 val amount: Double,
-            ): Action
+            ) : Action
         }
     }
 
@@ -158,7 +181,7 @@ data class Table(
         val number: Int,
         val amount: Double,
         val jackpot: Double,
-        val playerWins: List<PlayerWin>
+        val playerWins: List<PlayerWin>,
     ) {
         data class PlayerWin(
             val playerId: Int,
