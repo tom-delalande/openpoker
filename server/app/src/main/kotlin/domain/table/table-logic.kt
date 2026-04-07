@@ -122,12 +122,17 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
 }
 
 private fun Table.attemptFinishRound(): Table {
+    if (livePlayers.count { !it.isOut } == 1) {
+        // TODO: [high] Finish Hand
+        return this
+    }
+
     val lastAction = playerActions.filterNot { it is RequestAction }.last()
     val lastActionPlayer = players.find { it.id == lastAction.playerId }
     val lastRaiseAction = playerActions.dropLast(1).findLast { it is Raise || it is PostBigBlind }
 
     if (lastRaiseAction?.playerId == lastActionPlayer?.id) {
-        if (currentRound.street == Round.Street.River || currentStackByPlayer.values.all { it == 0.0 }) {
+        if (currentRound.street == Round.Street.River || livePlayers.all { it.isAllIn }) {
             // TODO: [medium] Add showdown events if necessary
             // TODO: [high] Finish Hand
             return this
@@ -163,14 +168,18 @@ private fun Table.attemptFinishRound(): Table {
     return this
 }
 
+private fun Table.finishHand(): Table {
+    return this
+}
+
 private fun Table.requestNextAction(now: Instant): Table {
     val lastAction = currentRound.actions.filterIsInstance<Round.Action.PlayerAction>().lastOrNull()
     val lastActionPlayer = players.find { it.id == lastAction?.playerId } ?: players[dealerSeat]
 
     val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
 
-    val playerRaise = currentRaiseByPlayer[nextPlayer.id] ?: 0.0
-    val playerStack = currentStackByPlayer[nextPlayer.id]!!
+    val playerRaise = livePlayersById[nextPlayer.id]!!.currentRaise
+    val playerStack = livePlayersById[nextPlayer.id]!!.currentStack
 
     val actionOptions = buildList {
         if (currentRound.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id && playerActions.filterIsInstance<PostSmallBlind>()

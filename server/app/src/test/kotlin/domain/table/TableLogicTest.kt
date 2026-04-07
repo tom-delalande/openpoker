@@ -233,7 +233,8 @@ class TableLogicTest {
                 actionOptions = listOf(
                     ActionOption.Fold,
                     ActionOption.Check,
-                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 1000.0),
+                    // TODO: [medium] check is this correct – does a bet count existing bets in the amount or is just the delta
+                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 995.0),
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(10),
             ),
@@ -285,11 +286,36 @@ class TableLogicTest {
                 actionOptions = listOf(
                     ActionOption.Fold,
                     ActionOption.Check,
-                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 1000.0)
+                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 995.0)
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(10),
             ),
             table.rounds[1].actions[1],
+        )
+    }
+
+    @Test
+    fun `given utg folds, when sb folds, then round is finished and big blind wins the pot`() {
+        val initialTable = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDefaultPlayers(3)
+            withDealtCards()
+            withAction(PostSmallBlind(2, DEFAULT_SMALL_BLIND_AMOUNT, false))
+            withAction(PostBigBlind(3, DEFAULT_BIG_BLIND_AMOUNT, false))
+            withAction(Fold(1))
+            withAction(
+                RequestAction(
+                    2,
+                    actionOptions = listOf(ActionOption.Fold),
+                    expiry = wellKnownTimestamp.plusSeconds(DEFAULT_TIMEOUT_IN_SECONDS)
+                )
+            )
+        }
+
+        val table = initialTable.processPlayerAction(
+            playerId = 2,
+            Fold(2),
+            wellKnownTimestamp,
         )
     }
 }
