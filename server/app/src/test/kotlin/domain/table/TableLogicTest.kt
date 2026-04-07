@@ -190,8 +190,11 @@ class TableLogicTest {
                 playerId = 1,
                 actionOptions = listOf(
                     ActionOption.Fold,
-                    ActionOption.Check,
-                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 1000.0),
+                    ActionOption.Raise(
+                        minAmount = DEFAULT_BIG_BLIND_AMOUNT + DEFAULT_BIG_BLIND_AMOUNT,
+                        maxAmount = 1000.0
+                    ),
+                    ActionOption.Call(amount = DEFAULT_BIG_BLIND_AMOUNT),
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(10),
             ),
@@ -234,7 +237,11 @@ class TableLogicTest {
                     ActionOption.Fold,
                     ActionOption.Check,
                     // TODO: [medium] check is this correct – does a bet count existing bets in the amount or is just the delta
-                    ActionOption.Bet(minAmount = DEFAULT_BIG_BLIND_AMOUNT, maxAmount = 995.0),
+                    // I think bet's are per street
+                    ActionOption.Raise(
+                        minAmount = DEFAULT_BIG_BLIND_AMOUNT + DEFAULT_BIG_BLIND_AMOUNT,
+                        maxAmount = 995.0
+                    ),
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(10),
             ),
@@ -317,5 +324,8 @@ class TableLogicTest {
             Fold(2),
             wellKnownTimestamp,
         )
+
+        assertEquals(true, table.isFinished)
+        assertEquals(3, table.pots.first().playerWins.first().playerId)
     }
 }

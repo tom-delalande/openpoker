@@ -146,6 +146,8 @@ message TableAction {
     Raise raise = 12;
     Call call = 13;
     AddChips added_chips = 14;
+    SitDown sitDown = 15;
+    StandUp standUp = 16;
   }
 
   message PostAnte {}
@@ -162,6 +164,8 @@ message TableAction {
   message MuckCards {}
   message ShowCards {}
   message AddChips {}
+  message SitDown {}
+  message StandUp {}
 }
 
 message RequestedActionOption {

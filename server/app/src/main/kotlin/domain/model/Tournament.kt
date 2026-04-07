@@ -18,6 +18,7 @@ data class Tournament(
         val status: Status,
     ) {
         data class Player(val id: Int, val name: String, val startingStack: Double)
+
         enum class Status {
             Created,
             Started,

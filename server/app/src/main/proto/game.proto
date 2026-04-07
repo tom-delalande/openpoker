@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package openpoker.v1;
+
+import "google/protobuf/empty.proto";
+
+service GameService {
+  rpc Auth(AuthRequest) returns (AuthResponse);
+  rpc GetTables(GetTablesRequest) returns (GetTablesResponse);
+}
+
+message AuthRequest {
+}
+
+message AuthResponse {
+}
+
+message GetTablesRequest {
+}
+
+message GetTablesResponse {
+}

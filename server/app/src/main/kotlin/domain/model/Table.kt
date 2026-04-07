@@ -1,5 +1,6 @@
 package domain.model
 
+import domain.table.DEFAULT_BIG_BLIND_AMOUNT
 import java.time.Instant
 
 data class Table(
@@ -16,29 +17,18 @@ data class Table(
     val isFinished: Boolean = false,
     val seed: Long,
 ) {
-
     val currentRound: Round
         get() = rounds.last()
 
     val playerActions: List<Round.Action.PlayerAction>
         get() = rounds.flatMap { it.actions }.filterIsInstance<Round.Action.PlayerAction>()
 
-    val actions: List<Round.Action>
-        get() = rounds.flatMap { it.actions }
-
     val currentRaise: Double
-        get() = currentRound
-            .actions
-            .filterIsInstance<Round.Action.PlayerAction.Raise>()
-            .lastOrNull()
-            ?.amount ?: 0.0
+        get() = livePlayers.maxOfOrNull { it.contributionThisStreet } ?: bigBlindAmount
 
-    val currentRaiseByPlayer: Map<Int, Double>
-        get() = currentRound
-            .actions
-            .filterIsInstance<Round.Action.PlayerAction.Raise>()
-            .groupBy { it.playerId }
-            .mapValues { it.value.maxOf { it.amount } }
+    val previousRaise: Double
+        get() = livePlayers.map { it.contributionThisStreet }.sortedDescending()
+            .getOrElse(2) { 0.0 }
 
     val smallBlindPlayer: Player
         get() = players[dealerSeat.nextSeat()]
@@ -60,7 +50,7 @@ data class Table(
 
     data class BetLimit(
         val betType: BetType,
-        val betCap: Double,
+        val betCap: Double?,
     ) {
         enum class BetType {
             NoLimit,
@@ -71,7 +61,7 @@ data class Table(
         val id: Int,
         val name: String,
         val seat: Int,
-        val startingStack: Double,
+        val stack: Double,
         val isSittingOut: Boolean,
     )
 
@@ -205,6 +195,7 @@ data class Table(
                 ) : PlayerAction
             }
 
+
             data class DealCommunityCards(
                 val cards: List<Card>,
             ) : Action
@@ -236,101 +227,123 @@ data class Table(
     }
 
 
+    // TODO: [high] check this is right
+    val pot: Double
+        get() = rounds.fold(0.0) { pot, round ->
+            round.actions.fold(pot) { pot, action ->
+                when (action) {
+                    is Round.Action.PlayerAction.Bet -> pot + action.amount
+                    is Round.Action.PlayerAction.Call -> pot + action.amount
+                    is Round.Action.PlayerAction.PostAnte -> pot + action.amount
+                    is Round.Action.PlayerAction.PostBigBlind -> pot + action.amount
+                    is Round.Action.PlayerAction.PostDeadBlind -> pot + action.amount
+                    is Round.Action.PlayerAction.PostExtraBlind -> pot + action.amount
+                    is Round.Action.PlayerAction.PostSmallBlind -> pot + action.amount
+                    is Round.Action.PlayerAction.PostStraddle -> pot + action.amount
+                    is Round.Action.PlayerAction.Raise -> pot + action.amount
+                    else -> pot
+                }
+
+            }
+        }
+
     val livePlayersById: Map<Int, LivePlayerInfo>
         get() = livePlayers.associateBy { it.playerId }
 
     val livePlayers: List<LivePlayerInfo>
-        get() = actions.fold(players.map {
+        get() = rounds.fold(players.map {
             LivePlayerInfo(
                 playerId = it.id,
                 seat = it.seat,
                 position = (it.seat - dealerSeat) % players.size,
-                currentStack = it.startingStack
+                currentStack = it.stack
             )
-        }) { players, action ->
-            players.map { player ->
-                if (action is Round.Action.PlayerAction && player.playerId == action.playerId || action !is Round.Action.PlayerAction) {
-                    when (action) {
-                        is Round.Action.DealCommunityCards -> player.copy(cards = player.cards + action.cards)
-                        is Round.Action.PlayerAction.Bet -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+        }) { players, round ->
+            return@fold round.actions.fold(players.map { it.copy(contributionThisStreet = 0.0) }) { players, action ->
+                players.map { player ->
+                    if (action is Round.Action.PlayerAction && player.playerId == action.playerId || action !is Round.Action.PlayerAction) {
+                        when (action) {
+                            is Round.Action.DealCommunityCards -> player.copy(cards = player.cards + action.cards)
+                            is Round.Action.PlayerAction.Bet -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.Call -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.Call -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.Check -> player.copy(
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.Check -> player.copy(
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.DealCards -> player.copy(cards = player.cards + action.cards)
-                        is Round.Action.PlayerAction.Fold -> player.copy(isOut = true, lastAction = action)
-                        is Round.Action.PlayerAction.PostAnte -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.DealCards -> player.copy(cards = player.cards + action.cards)
+                            is Round.Action.PlayerAction.Fold -> player.copy(isOut = true, lastAction = action)
+                            is Round.Action.PlayerAction.PostAnte -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.PostBigBlind -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.PostBigBlind -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.PostDeadBlind -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.PostDeadBlind -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.PostExtraBlind -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.PostExtraBlind -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.PostSmallBlind -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.PostSmallBlind -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.PostStraddle -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.PostStraddle -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.Raise -> player.copy(
-                            currentRaise = player.currentRaise + action.amount,
-                            currentStack = player.currentStack - action.amount,
-                            isAllIn = action.isAllIn,
-                            lastAction = action,
-                        )
+                            is Round.Action.PlayerAction.Raise -> player.copy(
+                                contributionThisStreet = player.contributionThisStreet + action.amount,
+                                currentStack = player.currentStack - action.amount,
+                                isAllIn = action.isAllIn,
+                                lastAction = action,
+                            )
 
-                        is Round.Action.PlayerAction.AddChips -> TODO()
-                        is Round.Action.PlayerAction.MuckCards,
-                        is Round.Action.PlayerAction.RequestAction,
-                        is Round.Action.PlayerAction.ShowCards,
-                        is Round.Action.PlayerAction.SitDown,
-                        is Round.Action.PlayerAction.StandUp,
-                            -> player
+                            is Round.Action.PlayerAction.SitDown -> player.copy(isSittingOut = false)
+                            is Round.Action.PlayerAction.StandUp -> player.copy(isSittingOut = true)
+                            is Round.Action.PlayerAction.AddChips -> TODO()
+                            is Round.Action.PlayerAction.MuckCards,
+                            is Round.Action.PlayerAction.RequestAction,
+                            is Round.Action.PlayerAction.ShowCards,
+                                -> player
+                        }
+                    } else {
+                        player
                     }
-                } else {
-                    player
                 }
             }
         }
@@ -340,8 +353,9 @@ data class Table(
         val seat: Int,
         val position: Int, // 0 is dealer, 1 is small blind ...
         val currentStack: Double,
-        val currentRaise: Double = 0.0,
+        val contributionThisStreet: Double = 0.0,
         val isOut: Boolean = false,
+        val isSittingOut: Boolean = false,
         val isAllIn: Boolean = false,
         val lastAction: Round.Action.PlayerAction? = null,
         val cards: List<Card> = emptyList(),

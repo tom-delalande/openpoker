@@ -1,80 +1,94 @@
 package domain.table
 
+import domain.model.Table.Card
+
 data class HandRating(
-    val handStrength: String,
+    val handStrength: HandStrength,
     val score: Double,
 )
+
+enum class HandStrength {
+    StraightFlush,
+    Straight,
+    Flush,
+    FourOfAKind,
+    FullHouse,
+    ThreeOfAKind,
+    TwoPair,
+    Pair,
+    HighCard,
+}
 
 fun List<Card>.rateHand(): HandRating {
     val hands = calculateHands()
     val highCards = hands.highCard
     if (hands.straightFlush.isNotEmpty()) {
-        val score = calculateHandScore("Straight Flush", hands.straightFlush, highCards)
+        val score = calculateHandScore(HandStrength.StraightFlush, hands.straightFlush, highCards)
         return HandRating(
-            "Straight Flush",
+            HandStrength.StraightFlush,
             score,
         )
     }
 
     if (hands.straight.isNotEmpty()) {
-        val score = calculateHandScore("Straight", hands.straight, highCards)
+        val score = calculateHandScore(HandStrength.Straight, hands.straight, highCards)
         return HandRating(
-            "Straight",
+            HandStrength.Straight,
             score,
         )
     }
 
     if (hands.flush.isNotEmpty()) {
-        val score = calculateHandScore("Flush", hands.flush, highCards)
+        val score = calculateHandScore(HandStrength.Flush, hands.flush, highCards)
         return HandRating(
-            "Flush",
+            HandStrength.Flush,
             score,
         )
     }
 
     if (hands.fourOfAKind.isNotEmpty()) {
-        val score = calculateHandScore("Four of a Kind", hands.fourOfAKind, highCards)
+        val score = calculateHandScore(HandStrength.FourOfAKind, hands.fourOfAKind, highCards)
         return HandRating(
-            "Four of a Kind",
+            HandStrength.FourOfAKind,
             score,
         )
     }
 
     if (hands.fullHouse.isNotEmpty()) {
         val score = calculateHandScore(
-            "Full House",
+            HandStrength.FullHouse,
             listOf(hands.fullHouse.first().threeOfAKind, hands.fullHouse.first().pair),
             highCards
         )
         return HandRating(
-            "Full House",
+            HandStrength.FullHouse,
             score,
         )
     }
     if (hands.threeOfAKind.isNotEmpty()) {
-        val score = calculateHandScore("Three of a Kind", hands.threeOfAKind, highCards)
+        val score = calculateHandScore(HandStrength.ThreeOfAKind, hands.threeOfAKind, highCards)
         return HandRating(
-            "Three of a Kind",
+            HandStrength.ThreeOfAKind,
             score,
         )
     }
     if (hands.pair.size > 1) {
-        val score = calculateHandScore("Two Pair", hands.pair, highCards)
+        val score = calculateHandScore(HandStrength.TwoPair, hands.pair, highCards)
         return HandRating(
-            "Two Pair",
+            HandStrength.TwoPair,
             score,
         )
     }
     if (hands.pair.isNotEmpty()) {
-        val score = calculateHandScore("Pair", hands.pair, highCards)
+        val score = calculateHandScore(HandStrength.Pair, hands.pair, highCards)
         return HandRating(
-            "Pair",
+            HandStrength.Pair,
             score,
         )
     }
-    val score = calculateHandScore("High Card", hands.highCard, highCards)
+    val score = calculateHandScore(HandStrength.HighCard, hands.highCard, highCards)
     return HandRating(
-        "High Card",
+        HandStrength.HighCard,
         score,
     )
 }
@@ -106,7 +120,7 @@ private fun List<Card>.calculateHands(): ScoredHands {
         map
     }
 
-    val suitFrequency = sortedCards.fold(mutableMapOf<String, Int>()) { map, card ->
+    val suitFrequency = sortedCards.fold(mutableMapOf<Card.Suit, Int>()) { map, card ->
         val current = map[card.suit] ?: 0
         map[card.suit] = current + 1
         map
@@ -173,7 +187,7 @@ private fun Map<Int, Int>.calculatePairCombinations(): PairCombinations {
     )
 }
 
-private fun Map<String, Int>.calculateFlushes(sortedCards: List<Card>): List<Int> {
+private fun Map<Card.Suit, Int>.calculateFlushes(sortedCards: List<Card>): List<Int> {
     val flush = mutableListOf<Int>()
     forEach { (key, value) ->
         if (value > 5) {
@@ -208,37 +222,38 @@ private fun Map<Int, Int>.calculateStraights(): List<Int> {
     return straight
 }
 
-private fun calculateHandScore(handStrength: String, handCards: List<Int>, highCards: List<Int>): Double {
-    val extraCards = highCards.filterNot { handCards.contains(it) }.toMutableList()
+private fun calculateHandScore(handStrength: HandStrength, handCards: List<Int>, highCards: List<Int>): Double {
+    val extraCards = highCards
+        .filterNot { handCards.contains(it) }
+        .toMutableList()
     while (extraCards.size < 4) {
         extraCards.add(0)
     }
 
     return when (handStrength) {
-        "High Card" -> 0.007 * handCards[0] +
-                0.00007 * highCards[0] +
-                0.0000007 * highCards[1] +
-                0.000000007 * highCards[2] +
-                0.00000000007 * highCards[3]
+        HandStrength.HighCard -> 0.007 * handCards[0] +
+                0.00007 * extraCards[0] +
+                0.0000007 * extraCards[1] +
+                0.000000007 * extraCards[2] +
+                0.00000000007 * extraCards[3]
 
-        "Pair" -> 0.2 + 0.007 * handCards[0] +
-                0.00007 * highCards[0] +
-                0.0000007 * highCards[1] +
-                0.000000007 * highCards[2]
+        HandStrength.Pair -> 0.2 + 0.007 * handCards[0] +
+                0.00007 * extraCards[0] +
+                0.0000007 * extraCards[1] +
+                0.000000007 * extraCards[2]
 
-        "Two Pair" -> 0.3 + 0.007 * handCards[0] +
+        HandStrength.TwoPair -> 0.3 + 0.007 * handCards[0] +
                 0.00007 * handCards[1] +
-                0.0000007 * highCards[0]
+                0.0000007 * extraCards[0]
 
-        "Three of a Kind" -> 0.4 + 0.007 * handCards[0] +
-                0.00007 * highCards[0] +
-                0.0000007 * highCards[1]
+        HandStrength.ThreeOfAKind -> 0.4 + 0.007 * handCards[0] +
+                0.00007 * extraCards[0] +
+                0.0000007 * extraCards[1]
 
-        "Straight" -> 0.5 + 0.007 * handCards[0]
-        "Flush" -> 0.6 + 0.007 * handCards[0]
-        "Full House" -> 0.7 + 0.007 * handCards[0] + 0.00007 * handCards[1]
-        "Four of a Kind" -> 0.8 + 0.007 * handCards[0] + 0.00007 * highCards[1]
-        "Straight Flush" -> 0.9 + 0.007 * handCards[0]
-        else -> 0.0
+        HandStrength.Straight -> 0.5 + 0.007 * handCards[0]
+        HandStrength.Flush -> 0.6 + 0.007 * handCards[0]
+        HandStrength.FullHouse -> 0.7 + 0.007 * handCards[0] + 0.00007 * handCards[1]
+        HandStrength.FourOfAKind -> 0.8 + 0.007 * handCards[0] + 0.00007 * extraCards[1]
+        HandStrength.StraightFlush -> 0.9 + 0.007 * handCards[0]
     }
 }

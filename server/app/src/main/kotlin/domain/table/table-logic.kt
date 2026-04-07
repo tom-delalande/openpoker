@@ -6,35 +6,41 @@ import domain.model.Tournament
 import java.time.Instant
 import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption as ActionOption
 import domain.model.Table.Round.Action.PlayerAction.*
+import domain.tournament.CashGameRepository
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 
 const val DEFAULT_SMALL_BLIND_AMOUNT = 5.0
-const val DEFAULT_BIG_BLIND_AMOUNT = 5.0
+const val DEFAULT_BIG_BLIND_AMOUNT = 10.0
+const val DEFAULT_ANTE_AMOUNT = 20.0
 const val DEFAULT_TIMEOUT_IN_SECONDS = 10L
 
 fun createTable(
-    tournamentDetails: Tournament.Details,
+    players: List<CashGameRepository.Player>,
+    smallBlindAmount: Double = DEFAULT_SMALL_BLIND_AMOUNT,
+    bigBlindAmount: Double = DEFAULT_BIG_BLIND_AMOUNT,
+    anteAmount: Double = DEFAULT_ANTE_AMOUNT,
     seed: Long = Random.nextLong(),
 ): Table {
     val table = Table(
         gameType = Table.GameType.HoldEm,
+        // TODO: [medium] this unused
         betLimit = Table.BetLimit(
             betType = Table.BetLimit.BetType.NoLimit,
-            betCap = 10.0,
+            betCap = null,
         ),
-        tableSize = tournamentDetails.players.size,
+        tableSize = players.size,
         dealerSeat = 0,
-        smallBlindAmount = DEFAULT_SMALL_BLIND_AMOUNT,
-        bigBlindAmount = DEFAULT_BIG_BLIND_AMOUNT,
-        anteAmount = 6.0,
-        players = tournamentDetails.players.mapIndexed { index, player ->
+        smallBlindAmount = smallBlindAmount,
+        bigBlindAmount = bigBlindAmount,
+        anteAmount = anteAmount,
+        players = players.mapIndexed { index, player ->
             Table.Player(
                 id = player.id,
                 name = player.name,
                 seat = index,
-                startingStack = tournamentDetails.startingStack,
+                stack = player.stack,
                 isSittingOut = false,
             )
         },
@@ -91,6 +97,29 @@ fun Table.processTable(now: Instant): Table {
     }
 }
 
+fun Table.startNextHand(
+    smallBlindAmount: Double = this.smallBlindAmount,
+    bigBlindAmount: Double = this.bigBlindAmount,
+    seed: Long = Random.nextLong(),
+): Table {
+    return copy(
+        dealerSeat = dealerSeat + 1,
+        players = players.map { player ->
+            player.copy(
+                isSittingOut = false,
+                stack = player.stack + pots.flatMap { it.playerWins }.filter { it.playerId == player.id }
+                    .sumOf { it.winAmount }
+            )
+        },
+        smallBlindAmount = smallBlindAmount,
+        bigBlindAmount = bigBlindAmount,
+        isFinished = false,
+        rounds = listOf(),
+        pots = listOf(),
+        seed = seed,
+    )
+}
+
 fun Table.processPostAction(now: Instant): Table = attemptFinishRound().requestNextAction(now)
 
 // TODO: [low] Maybe this action type should be it's own interface
@@ -123,8 +152,7 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
 
 private fun Table.attemptFinishRound(): Table {
     if (livePlayers.count { !it.isOut } == 1) {
-        // TODO: [high] Finish Hand
-        return this
+        return finishHand()
     }
 
     val lastAction = playerActions.filterNot { it is RequestAction }.last()
@@ -134,8 +162,7 @@ private fun Table.attemptFinishRound(): Table {
     if (lastRaiseAction?.playerId == lastActionPlayer?.id) {
         if (currentRound.street == Round.Street.River || livePlayers.all { it.isAllIn }) {
             // TODO: [medium] Add showdown events if necessary
-            // TODO: [high] Finish Hand
-            return this
+            return finishHand()
         } else {
             val street = when (currentRound.street) {
                 Round.Street.PreFlop -> Round.Street.Flop
@@ -169,7 +196,33 @@ private fun Table.attemptFinishRound(): Table {
 }
 
 private fun Table.finishHand(): Table {
-    return this
+    val winners = calculateWinners()
+    val winnings = pot / winners.count()
+
+    // TODO: [high] Calculate split pots and all that
+
+
+    return copy(
+        isFinished = true,
+        pots = listOf(
+            Table.Pot(
+                number = 0,
+                amount = pot,
+                jackpot = 0.0,
+                playerWins = winners.map {
+                    Table.Pot.PlayerWin(
+                        playerId = it,
+                        winAmount = winnings,
+                    )
+                }
+            ))
+    )
+}
+
+private fun Table.calculateWinners(): List<Int> {
+    val handRatings = livePlayers.filterNot { it.isOut }.associateWith { (it.cards).rateHand().score }
+    val winningRating = handRatings.maxOf { it.value }
+    return handRatings.filterValues { it == winningRating }.map { it.key.playerId }
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
@@ -178,7 +231,7 @@ private fun Table.requestNextAction(now: Instant): Table {
 
     val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
 
-    val playerRaise = livePlayersById[nextPlayer.id]!!.currentRaise
+    val playerRaise = livePlayersById[nextPlayer.id]!!.contributionThisStreet
     val playerStack = livePlayersById[nextPlayer.id]!!.currentStack
 
     val actionOptions = buildList {
@@ -212,15 +265,16 @@ private fun Table.requestNextAction(now: Instant): Table {
 
         if (currentRaise > 0.0 && playerStack > 0.0) {
             add(
+                // TODO: [medium] raises might still be wrong
                 ActionOption.Raise(
-                    minAmount = currentRaise + bigBlindAmount,
+                    minAmount = currentRaise + (currentRaise - previousRaise),
                     maxAmount = max(playerRaise - currentRaise, playerStack)
                 )
             )
         }
 
         if (currentRaise > 0.0 && playerRaise < currentRaise && playerStack > 0.0) {
-            add(ActionOption.Call(amount = min(playerStack, max(playerStack, playerRaise - currentRaise))))
+            add(ActionOption.Call(amount = min(playerStack, currentRaise - playerRaise)))
         }
     }
 

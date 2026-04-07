@@ -1,25 +1,17 @@
 package server
 
-import kotlinx.coroutines.channels.SendChannel
+import openpoker.v1.AuthResponse
 import openpoker.v1.CreateTournamentRequest
-import openpoker.v1.TournamentEvent
-import openpoker.v1.TournamentResponse
-import openpoker.v1.TournamentServiceServer
-import openpoker.v1.UpdateTournamentRequest
+import openpoker.v1.GameServiceServer
+import openpoker.v1.GetTablesRequest
+import openpoker.v1.GetTablesResponse
 
-class GrpcTournamentServiceServer: TournamentServiceServer {
-    override suspend fun Status(
-        request: Unit,
-        response: SendChannel<TournamentEvent>,
-    ) {
+class GrpcGameServiceServer : GameServiceServer {
+    override suspend fun Auth(request: CreateTournamentRequest): AuthResponse {
         TODO("Not yet implemented")
     }
 
-    override suspend fun Create(request: CreateTournamentRequest): TournamentResponse {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun Update(request: UpdateTournamentRequest): TournamentResponse {
+    override suspend fun GetTables(request: GetTablesRequest): GetTablesResponse {
         TODO("Not yet implemented")
     }
 }

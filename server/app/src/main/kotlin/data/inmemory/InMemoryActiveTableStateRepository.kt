@@ -13,6 +13,10 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
         return tables.values.toList()
     }
 
+    override fun get(id: UUID): ActiveTable? {
+        return tables[id]
+    }
+
     override fun set(id: UUID, table: Table) {
         tables[id] = ActiveTable(id, table)
     }

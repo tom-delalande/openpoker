@@ -13,7 +13,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import openpoker.v1.TournamentServiceWireGrpc
-import server.GrpcTournamentServiceServer
+import server.GrpcGameServiceServer
 
 suspend fun main() {
     val activeTableStateRepository = InMemoryActiveTableStateRepository()
@@ -31,7 +31,7 @@ suspend fun main() {
     val port = System.getenv("PORT")?.toIntOrNull() ?: 50051
     val server = NettyServerBuilder.forPort(port)
         .addService(TableServiceWireGrpc.BindableAdapter(service = ::GrpcTableServiceServer))
-        .addService(TournamentServiceWireGrpc.BindableAdapter(service = ::GrpcTournamentServiceServer))
+        .addService(TournamentServiceWireGrpc.BindableAdapter(service = ::GrpcGameServiceServer))
         .build()
         .start()
 
