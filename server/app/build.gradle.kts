@@ -1,21 +1,24 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.squareup.wiregrpcserver:server-generator:1.0.0-alpha04")
-    }
-}
+import org.gradle.kotlin.dsl.sourceSets
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.3.20"
     kotlin("plugin.serialization") version "2.3.20"
-    id("com.squareup.wire") version "5.3.3"
+    id("org.openapi.generator") version "7.21.0"
     application
 }
 
 kotlin {
 }
+
+sourceSets {
+    main {
+        kotlin {
+            // Register the generated directory as a source directory
+            srcDir("$buildDir/generated/src/main/kotlin")
+        }
+    }
+}
+
 
 application {
     mainClass.set("app.MainKt")
@@ -44,13 +47,12 @@ val grpcVersion = "1.80.0"
 
 dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.0-beta1")
-    implementation("com.squareup.wire:wire-runtime:$wireVersion")
-    implementation("com.squareup.wiregrpcserver:server:1.0.0-alpha04")
-    implementation("com.google.protobuf:protobuf-java:4.34.1")
-    implementation(platform("io.grpc:grpc-bom:$grpcVersion"))
-    implementation("io.grpc:grpc-protobuf")
-    implementation("io.grpc:grpc-netty-shaded")
-    implementation("io.grpc:grpc-kotlin-stub:1.5.0")
+
+    implementation("io.ktor:ktor-server-core:$ktorVersion")
+    implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+    implementation("io.ktor:ktor-server-websockets:$ktorVersion")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
@@ -63,18 +65,15 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.1.0-M1")
 }
 
-wire {
-    custom {
-        schemaHandlerFactory = com.squareup.wire.kotlin.grpcserver.GrpcServerSchemaHandler.Factory()
-        options = mapOf(
-            "singleMethodServices" to "false",
-            "rpcCallStyle" to "suspending",
+openApiGenerate {
+    generatorName.set("kotlin-server")
+    inputSpec.set("$rootDir/../api/tsp-output/schema/openapi.yaml")
+    outputDir.set("$buildDir/generated")
+    apiPackage.set("server")
+    configOptions.set(
+        mapOf(
+            "generateApis" to "false",
+            "generateModels" to "true",
         )
-        exclusive = false
-    }
-    kotlin {
-        rpcRole = "server"
-        singleMethodServices = false
-        rpcCallStyle = "suspending"
-    }
+    )
 }
