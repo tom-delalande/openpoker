@@ -6,269 +6,197 @@ using Http;
 namespace OpenPoker.V1;
 
 model AuthRequest {
-  name: string
+  name: string;
 }
 
 model AuthResponse {
-  token: string
+  token: string;
 }
 
 model GetTablesRequest {}
 
-model GetTablesResponse {
-
-}
+model GetTablesResponse {}
 
 @discriminated
 union HandEvent {
-  HandStartedEvent: HandStartedEvent,
-  RoundStartedEvent: RoundStartedEvent
+  PlayerSatDown: PlayerSatDown,
+  PlayerStoodUp: PlayerStoodUp,
+  HandStarted: HandStarted,
+  RoundStarted: RoundStarted,
+  CommunityCardDealt: CommunityCardDealt,
+  PrivateCardDealt: PrivateCardDealt,
+  HandFinished: HandFinished,
+  PlayerActionRequested: PlayerActionRequested,
+  PlayerPostedSmallBlind: PlayerPostedSmallBlind,
+  PlayerPostedBigBlind: PlayerPostedBigBlind,
+  PlayerPostedAnte: PlayerPostedAnte,
+  PlayerFolded: PlayerFolded,
+  PlayerChecked: PlayerChecked,
+  PlayerBet: PlayerBet,
+  PlayerRaised: PlayerRaised,
+  PlayerCalled: PlayerCalled,
+  PlayerShowedCard: PlayerShowedCard,
 }
 
+model PlayerSatDown {
+  type: "PlayerSatDownEvent";
+  playerId: int32;
+  seat: int32;
+}
 
-model HandStartedEvent {
+model PlayerStoodUp {
+  type: "PlayerStoodUpEvent";
+  playerId: int32;
+}
+
+model HandStarted {
   type: "HandStartedEvent";
-  dealerButton: int32
+  dealerButton: int32;
 }
 
-model RoundStartedEvent {
-  type: "RoundStartedEvent"
+model RoundStarted {
+  type: "RoundStartedEvent";
+  street: string;
 }
 
-alias HandEventType =
-  | TableEventDealtCards
-  | TableEventMucksCards
-  | TableEventShowsCards
-  | TableEventPostAnte
-  | TableEventPostSmallBlind
-  | TableEventPostBigBlind
-  | TableEventPostStraddle
-  | TableEventPostDeadBlind
-  | TableEventPostExtraBlind
-  | TableEventFold
-  | TableEventCheck
-  | TableEventBet
-  | TableEventRaise
-  | TableEventCall
-  | TableEventAddedChips
-  | TableEventSitsDown
-  | TableEventStandsUp
-  | TableEventAddToPot
-  | TableEventRequestPlayerAction
-  | TableEventDealTableCards
-  | TableEventDealPrivateCards;
-
-model TableEventDealtCards {
-  player_id: string;
-  card_string: string[];
+model CommunityCardDealt {
+  type: "CommunityCardDealtEvent";
+  cards: string[];
 }
 
-model TableEventMucksCards {
-  player_id: int32;
+model PrivateCardDealt {
+  type: "PrivateCardDealtEvent";
+  playerId: int32;
+  cards: string[];
 }
 
-model TableEventShowsCards {
-  player_id: int32;
-  card_string: string[];
+model HandFinished {
+  type: "HandFinished";
+  winners: int32[];
 }
 
-model TableEventPostAnte {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+model PlayerActionRequested {
+  type: "PlayerActionRequested";
+  playerId: int32;
+  actionOptions: ActionOptions[];
 }
 
-model TableEventPostSmallBlind {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+@discriminated
+union ActionOptions {
+  Fold: FoldOption,
+  Check: CheckOption,
+  Bet: BetOption,
+  Raise: RaiseOption,
+  PostSmallBlind: PostBigBlindOption,
+  PostBigBlind: PostBigBlindOption,
 }
 
-model TableEventPostBigBlind {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+model FoldOption {
+  type: "FoldOption";
+}
+model CheckOption {
+  type: "CheckOption";
+}
+model BetOption {
+  type: "BetOption";
+}
+model RaiseOption {
+  type: "RaiseOption";
+}
+model PostSmallBlindOption {
+  type: "PostSmallBlindOption";
+}
+model PostBigBlindOption {
+  type: "PostBigBlindOption";
 }
 
-model TableEventPostStraddle {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+model PlayerPostedSmallBlind {
+  type: "PlayerPostedSmallBlind";
+  playerId: int32;
+  amount: int32;
+  isAllIn: boolean;
+}
+model PlayerPostedBigBlind {
+  type: "PlayerPostedBigBlind";
+  playerId: int32;
+  amount: int32;
+  isAllIn: boolean;
+}
+model PlayerPostedAnte {
+  type: "PlayerPostedAnte";
+  playerId: int32;
+  amount: int32;
+  isAllIn: boolean;
+}
+model PlayerFolded {
+  type: "PlayerFolded";
+  playerId: int32;
+}
+model PlayerChecked {
+  type: "PlayerChecked";
+  playerId: int32;
+}
+model PlayerBet {
+  type: "PlayerBet";
+  playerId: int32;
+  amount: int32;
+  isAllIn: boolean;
+}
+model PlayerRaised {
+  type: "PlayerRaised";
+  playerId: int32;
+  amount: int32;
+  isAllIn: boolean;
+}
+model PlayerCalled {
+  type: "PlayerCalled";
+  playerId: int32;
+  amount: int32;
+  isAllIn: boolean;
+}
+model PlayerShowedCard {
+  type: "PlayerShowedCard";
+  cards: string[];
 }
 
-model TableEventPostDeadBlind {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+@discriminated
+union PlayerAction {
+  Fold: Fold,
+  Check: Check,
+  Bet: Bet,
+  Raise: Raise,
+  PostSmallBlind: PostBigBlind,
+  PostBigBlind: PostBigBlind,
 }
 
-model TableEventPostExtraBlind {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+model Fold {
+  type: "Fold";
 }
-
-model TableEventFold {
-  player_id: int32;
+model Check {
+  type: "Check";
 }
-
-model TableEventCheck {
-  player_id: int32;
+model Bet {
+  type: "Bet";
 }
-
-model TableEventBet {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+model Raise {
+  type: "Raise";
 }
-
-model TableEventRaise {
-  player_id: int32;
-  amount: float64;
-  is_allin: boolean;
+model PostSmallBlind {
+  type: "PostSmallBlind";
 }
-
-model TableEventCall {
-  player_id: int32;
-}
-
-model TableEventAddedChips {
-  player_id: int32;
-  amount: float64;
-}
-
-model TableEventSitsDown {
-  player_id: int32;
-}
-
-model TableEventStandsUp {
-  player_id: int32;
-}
-
-model TableEventAddToPot {
-  player_id: int32;
-  amount: float64;
-}
-
-model TableEventRequestPlayerAction {}
-
-model TableEventDealTableCards {}
-
-model TableEventDealPrivateCards {}
-
-model TableAction {
-  kind: TableActionKind;
-}
-
-alias TableActionKind =
-  | TableActionMuckCards
-  | TableActionShowCards
-  | TableActionPostAnte
-  | TableActionPostSmallBlind
-  | TableActionPostBigBlind
-  | TableActionPostStraddle
-  | TableActionPostDeadBlind
-  | TableActionPostExtraBlind
-  | TableActionFold
-  | TableActionCheck
-  | TableActionBet
-  | TableActionRaise
-  | TableActionCall
-  | TableActionAddChips
-  | TableActionSitDown
-  | TableActionStandUp;
-
-model TableActionPostAnte {}
-model TableActionPostSmallBlind {}
-model TableActionPostBigBlind {}
-model TableActionPostStraddle {}
-model TableActionPostDeadBlind {}
-model TableActionPostExtraBlind {}
-model TableActionFold {}
-model TableActionCheck {}
-model TableActionBet {}
-model TableActionRaise {}
-model TableActionCall {}
-model TableActionMuckCards {}
-model TableActionShowCards {}
-model TableActionAddChips {}
-model TableActionSitDown {}
-model TableActionStandUp {}
-
-model RequestedActionOption {
-  kind: RequestedActionOptionKind;
-}
-
-alias RequestedActionOptionKind =
-  | RequestedActionOptionPostSmallBlind
-  | RequestedActionOptionPostBigBlind
-  | RequestedActionOptionPostStraddle
-  | RequestedActionOptionPostDeadBlind
-  | RequestedActionOptionPostExtraBlind
-  | RequestedActionOptionFold
-  | RequestedActionOptionCheck
-  | RequestedActionOptionBet
-  | RequestedActionOptionRaise
-  | RequestedActionOptionCall;
-
-model RequestedActionOptionPostSmallBlind {
-  amount: float64;
-}
-
-model RequestedActionOptionPostBigBlind {
-  amount: float64;
-}
-
-model RequestedActionOptionPostStraddle {
-  amount: float64;
-}
-
-model RequestedActionOptionPostDeadBlind {
-  amount: float64;
-}
-
-model RequestedActionOptionPostExtraBlind {
-  amount: float64;
-}
-
-model RequestedActionOptionFold {}
-
-model RequestedActionOptionBet {
-  min_amount: float64;
-  max_amount: float64;
-}
-
-model RequestedActionOptionCheck {}
-
-model RequestedActionOptionRaise {
-  min_amount: float64;
-  max_amount: float64;
-}
-
-model RequestedActionOptionCall {
-  amount: float64;
-}
-
-model Pot {
-  number: int32;
-  amount: float64;
-  rake: float64;
-  player_wins: PlayerWin[];
-}
-
-model PlayerWin {
-  player_id: int32;
-  win_amount: float64;
-  contributed_rake: float64;
+model PostBigBlind {
+  type: "PostBigBlind";
 }
 
 @route("/game")
 interface GameService {
   @route("/auth")
-  @post auth(@body request: AuthRequest): AuthResponse;
+  @post
+  auth(@body request: AuthRequest): AuthResponse;
 
   @route("/tables")
-  @post getTables(@body request: GetTablesRequest): GetTablesResponse;
+  @post
+  getTables(@body request: GetTablesRequest): GetTablesResponse;
 }
 
 @route("/table")
@@ -276,5 +204,7 @@ interface TableService {
   // TypeSpec/OpenAPI cannot express the bidirectional gRPC stream directly.
   // This keeps the payload contract while approximating the connect call as a unary operation.
   @route("/connect")
-  @get connect(@body action: TableAction): HandEvent;
+  @get
+  connect(@body action: PlayerAction): HandEvent;
 }
+
