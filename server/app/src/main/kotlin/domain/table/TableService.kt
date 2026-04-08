@@ -3,7 +3,7 @@ package domain.table
 import domain.model.Table
 import java.time.Instant
 import java.util.UUID
-import server.TableEvent
+import server.models.HandStartedEvent
 
 class TableService(
     val activeRepository: ActiveTableStateRepository,
@@ -34,14 +34,10 @@ class TableService(
         table.processPlayerAction(playerId, action, now)
     }
 
-    fun Table.toEvents(): List<server.HandEvent> = buildList {
-        if (rounds.isNotEmpty()) {
-            // add()
-        }
-
+    fun Table.toEvents(): List<HandStartedEvent> = buildList {
         rounds.forEach { round ->
             if (round.id == 0) {
-                // add(HandStartedEvent)
+                add(HandStartedEvent())
             }
             // add(RoundStartedEvent)
             round.actions.map { action ->

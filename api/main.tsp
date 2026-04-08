@@ -19,17 +19,20 @@ model GetTablesResponse {
 
 }
 
-@discriminated(#{ discriminatorPropertyName: "type", envelopePropertyName: "data" })
+@discriminated
 union HandEvent {
-  handStartedEvent: HandStartedEvent,
-  roundStartedEvent: RoundStartedEvent
+  HandStartedEvent: HandStartedEvent,
+  RoundStartedEvent: RoundStartedEvent
 }
 
+
 model HandStartedEvent {
+  type: "HandStartedEvent";
   dealerButton: int32
 }
 
 model RoundStartedEvent {
+  type: "RoundStartedEvent"
 }
 
 alias HandEventType =

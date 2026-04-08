@@ -3,7 +3,7 @@ import org.gradle.kotlin.dsl.sourceSets
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.3.20"
     kotlin("plugin.serialization") version "2.3.20"
-    id("org.openapi.generator") version "7.21.0"
+    id("ch.acanda.gradle.fabrikt") version "1.31.1"
     application
 }
 
@@ -65,15 +65,9 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.1.0-M1")
 }
 
-openApiGenerate {
-    generatorName.set("kotlin-server")
-    inputSpec.set("$rootDir/../api/tsp-output/schema/openapi.yaml")
-    outputDir.set("$buildDir/generated")
-    apiPackage.set("server")
-    configOptions.set(
-        mapOf(
-            "generateApis" to "false",
-            "generateModels" to "true",
-        )
-    )
+fabrikt {
+    generate("schema") {
+        apiFile = file("../../api/tsp-output/schema/openapi.yaml")
+        basePackage = "server"
+    }
 }
