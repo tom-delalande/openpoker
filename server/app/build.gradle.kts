@@ -3,7 +3,7 @@ import org.gradle.kotlin.dsl.sourceSets
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.3.20"
     kotlin("plugin.serialization") version "2.3.20"
-    id("ch.acanda.gradle.fabrikt") version "1.31.1"
+    id("ch.acanda.gradle.fabrikt") version "1.31.2"
     application
 }
 
@@ -69,5 +69,17 @@ fabrikt {
     generate("schema") {
         apiFile = file("../../api/tsp-output/schema/openapi.yaml")
         basePackage = "server"
+
+        controller {
+            generate = enabled
+            authentication = enabled
+            target = Ktor
+        }
+
+        model {
+            generate = enabled
+            sealedInterfacesForOneOf = enabled
+            serializationLibrary = Kotlinx
+        }
     }
 }
