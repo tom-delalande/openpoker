@@ -4,17 +4,69 @@ import domain.model.Table
 import java.time.Instant
 import java.util.UUID
 import kotlinx.serialization.ExperimentalSerializationApi
+import server.models.ActionOptions
+import server.models.ActionOptionsBet
+import server.models.ActionOptionsCall
+import server.models.ActionOptionsCheck
+import server.models.ActionOptionsFold
+import server.models.ActionOptionsPostBigBlind
+import server.models.ActionOptionsPostSmallBlind
+import server.models.ActionOptionsRaise
+import server.models.BetOption
+import server.models.BetOptionType
+import server.models.CallOption
+import server.models.CallOptionType
+import server.models.CheckOption
+import server.models.CheckOptionType
 import server.models.CommunityCardDealt
 import server.models.CommunityCardDealtType
+import server.models.FoldOption
+import server.models.FoldOptionType
 import server.models.HandEvent
 import server.models.HandEventCommunityCardDealt
 import server.models.HandEventHandStarted
-import server.models.HandEventHandStartedEvent
+import server.models.HandEventPlayerActionRequested
+import server.models.HandEventPlayerBet
+import server.models.HandEventPlayerCalled
+import server.models.HandEventPlayerChecked
+import server.models.HandEventPlayerFolded
+import server.models.HandEventPlayerPostedBigBlind
+import server.models.HandEventPlayerPostedSmallBlind
+import server.models.HandEventPlayerRaised
+import server.models.HandEventPlayerSatDown
+import server.models.HandEventPlayerStoodUp
+import server.models.HandEventPrivateCardDealt
 import server.models.HandEventRoundStarted
 import server.models.HandStarted
-import server.models.HandStartedEvent
-import server.models.HandStartedEventType
 import server.models.HandStartedType
+import server.models.PlayerActionRequested
+import server.models.PlayerActionRequestedType
+import server.models.PlayerBet
+import server.models.PlayerBetType
+import server.models.PlayerCalled
+import server.models.PlayerCalledType
+import server.models.PlayerChecked
+import server.models.PlayerCheckedType
+import server.models.PlayerFolded
+import server.models.PlayerFoldedType
+import server.models.PlayerPostedBigBlind
+import server.models.PlayerPostedBigBlindType
+import server.models.PlayerPostedSmallBlind
+import server.models.PlayerPostedSmallBlindType
+import server.models.PlayerRaised
+import server.models.PlayerRaisedType
+import server.models.PlayerSatDown
+import server.models.PlayerSatDownType
+import server.models.PlayerStoodUp
+import server.models.PlayerStoodUpType
+import server.models.PostBigBlindOption
+import server.models.PostBigBlindOptionType
+import server.models.PostSmallBlindOption
+import server.models.PostSmallBlindOptionType
+import server.models.PrivateCardDealt
+import server.models.PrivateCardDealtType
+import server.models.RaiseOption
+import server.models.RaiseOptionType
 import server.models.RoundStarted
 import server.models.RoundStartedType
 
@@ -26,14 +78,21 @@ class TableService(
         val tables = activeRepository.getActiveTables()
         tables.forEach { (id, table) ->
             val updated = table.processTable(now)
-            if (table.isFinished) {
-                historicRepository.saveHand(id, updated)
-                val nextHand = table.startNextHand()
-                activeRepository.set(id, nextHand)
-            } else {
-                activeRepository.set(id, updated)
-            }
+            saveTable(id, updated)
         }
+    }
+
+    fun receivePlayerActions(
+        tableId: UUID,
+        playerId: Int,
+        actions: List<Table.Round.Action.PlayerAction>,
+        now: Instant = Instant.now(),
+    ) {
+        val activeTable = activeRepository.get(tableId)!!
+        val updated = actions.fold(activeTable.table) { table, action ->
+            table.processPlayerAction(playerId, action, now)
+        }
+        saveTable(tableId, updated)
     }
 
     fun receivePlayerAction(
@@ -43,8 +102,18 @@ class TableService(
         now: Instant = Instant.now(),
     ) {
         val activeTable = activeRepository.get(tableId)!!
-        val table = activeTable.table
-        table.processPlayerAction(playerId, action, now)
+        val updated = activeTable.table.processPlayerAction(playerId, action, now)
+        saveTable(tableId, updated)
+    }
+
+    fun saveTable(id: UUID, table: Table) {
+        if (table.isFinished) {
+            historicRepository.saveHand(id, table)
+            val nextHand = table.startNextHand()
+            activeRepository.set(id, nextHand)
+        } else {
+            activeRepository.set(id, table)
+        }
     }
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -81,23 +150,182 @@ class TableService(
                     )
 
                     is Table.Round.Action.PlayerAction.AddChips -> TODO()
-                    is Table.Round.Action.PlayerAction.Bet -> TODO()
-                    is Table.Round.Action.PlayerAction.Call -> TODO()
-                    is Table.Round.Action.PlayerAction.Check -> TODO()
-                    is Table.Round.Action.PlayerAction.DealCards -> TODO()
-                    is Table.Round.Action.PlayerAction.Fold -> TODO()
+                    is Table.Round.Action.PlayerAction.Bet -> add(
+                        HandEventPlayerBet(
+                            value = PlayerBet(
+                                type = PlayerBetType.PLAYER_BET,
+                                amount = action.amount,
+                                playerId = action.playerId,
+                                isAllIn = action.isAllIn,
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.Call -> add(
+                        HandEventPlayerCalled(
+                            value = PlayerCalled(
+                                type = PlayerCalledType.PLAYER_CALLED,
+                                amount = action.amount,
+                                playerId = action.playerId,
+                                isAllIn = action.isAllIn,
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.Check -> add(
+                        HandEventPlayerChecked(
+                            value = PlayerChecked(
+                                type = PlayerCheckedType.PLAYER_CHECKED,
+                                playerId = action.playerId,
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.DealCards -> add(
+                        HandEventPrivateCardDealt(
+                            value = PrivateCardDealt(
+                                type = PrivateCardDealtType.PRIVATE_CARD_DEALT_EVENT,
+                                playerId = action.playerId,
+                                cards = action.cards.map { it.toStringValue() }
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.Fold -> add(
+                        HandEventPlayerFolded(
+                            value = PlayerFolded(
+                                type = PlayerFoldedType.PLAYER_FOLDED,
+                                playerId = action.playerId,
+                            )
+                        )
+                    )
+
                     is Table.Round.Action.PlayerAction.MuckCards -> TODO()
                     is Table.Round.Action.PlayerAction.PostAnte -> TODO()
-                    is Table.Round.Action.PlayerAction.PostBigBlind -> TODO()
+                    is Table.Round.Action.PlayerAction.PostBigBlind -> add(
+                        HandEventPlayerPostedBigBlind(
+                            value = PlayerPostedBigBlind(
+                                type = PlayerPostedBigBlindType.PLAYER_POSTED_BIG_BLIND,
+                                amount = action.amount,
+                                playerId = action.playerId,
+                                isAllIn = action.isAllIn,
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.PostSmallBlind -> add(
+                        HandEventPlayerPostedSmallBlind(
+                            value = PlayerPostedSmallBlind(
+                                type = PlayerPostedSmallBlindType.PLAYER_POSTED_SMALL_BLIND,
+                                amount = action.amount,
+                                playerId = action.playerId,
+                                isAllIn = action.isAllIn,
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.RequestAction -> add(
+                        HandEventPlayerActionRequested(
+                            value = PlayerActionRequested(
+                                type = PlayerActionRequestedType.PLAYER_ACTION_REQUESTED,
+                                playerId = action.playerId,
+                                actionOptions = action.actionOptions.map {
+                                    when (it) {
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.Bet -> ActionOptionsBet(
+                                            value = BetOption(
+                                                type = BetOptionType.BET_OPTION,
+                                                minAmount = it.minAmount,
+                                                maxAmount = it.maxAmount,
+                                            )
+                                        )
+
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.Call -> ActionOptionsCall(
+                                            value = CallOption(
+                                                type = CallOptionType.CALL_OPTION,
+                                                amount = it.amount,
+                                            )
+                                        )
+
+                                        Table.Round.Action.PlayerAction.RequestAction.ActionOption.Check -> ActionOptionsCheck(
+                                            value = CheckOption(
+                                                type = CheckOptionType.CHECK_OPTION,
+                                            )
+                                        )
+
+                                        Table.Round.Action.PlayerAction.RequestAction.ActionOption.Fold -> ActionOptionsFold(
+                                            value = FoldOption(
+                                                type = FoldOptionType.FOLD_OPTION,
+                                            )
+                                        )
+
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.Raise -> ActionOptionsRaise(
+                                            value = RaiseOption(
+                                                type = RaiseOptionType.RAISE_OPTION,
+                                                minAmount = it.minAmount,
+                                                maxAmount = it.maxAmount,
+                                            )
+                                        )
+
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostBigBlind -> ActionOptionsPostSmallBlind(
+                                            value = PostSmallBlindOption(
+                                                type = PostSmallBlindOptionType.POST_SMALL_BLIND_OPTION,
+                                                amount = it.amount,
+                                            )
+                                        )
+
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostSmallBlind -> ActionOptionsPostBigBlind(
+                                            value = PostBigBlindOption(
+                                                type = PostBigBlindOptionType.POST_BIG_BLIND_OPTION,
+                                                amount = it.amount,
+                                            )
+                                        )
+
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostDeadBlind -> TODO()
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostExtraBlind -> TODO()
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostStraddle -> TODO()
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostAnte -> TODO()
+                                        Table.Round.Action.PlayerAction.RequestAction.ActionOption.MuckCards -> TODO()
+                                        Table.Round.Action.PlayerAction.RequestAction.ActionOption.ShowCards -> TODO()
+                                    }
+                                }
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.SitDown -> add(
+                        HandEventPlayerSatDown(
+                            value = PlayerSatDown(
+                                type = PlayerSatDownType.PLAYER_SAT_DOWN_EVENT,
+                                playerId = action.playerId,
+                                seat = action.seat
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.StandUp -> add(
+                        HandEventPlayerStoodUp(
+                            value = PlayerStoodUp(
+                                type = PlayerStoodUpType.PLAYER_STOOD_UP_EVENT,
+                                playerId = action.playerId,
+                            )
+                        )
+                    )
+
+                    is Table.Round.Action.PlayerAction.Raise -> add(
+                        HandEventPlayerRaised(
+                            value = PlayerRaised(
+                                type = PlayerRaisedType.PLAYER_RAISED,
+                                amount = action.amount,
+                                playerId = action.playerId,
+                                isAllIn = action.isAllIn,
+                            )
+                        )
+                    )
+
                     is Table.Round.Action.PlayerAction.PostDeadBlind -> TODO()
                     is Table.Round.Action.PlayerAction.PostExtraBlind -> TODO()
-                    is Table.Round.Action.PlayerAction.PostSmallBlind -> TODO()
                     is Table.Round.Action.PlayerAction.PostStraddle -> TODO()
-                    is Table.Round.Action.PlayerAction.Raise -> TODO()
-                    is Table.Round.Action.PlayerAction.RequestAction -> TODO()
                     is Table.Round.Action.PlayerAction.ShowCards -> TODO()
-                    is Table.Round.Action.PlayerAction.SitDown -> TODO()
-                    is Table.Round.Action.PlayerAction.StandUp -> TODO()
                 }
             }
         }

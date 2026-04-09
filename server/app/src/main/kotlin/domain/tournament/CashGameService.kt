@@ -16,7 +16,7 @@ class CashGameService(
         val game = repository.get(gameId)!!
         game.copy(players = game.players + CashGameRepository.Player(playerId, name, stack))
         repository.save(game.id, game)
-        tableService.receivePlayerAction(game.tableId, playerId, Table.Round.Action.PlayerAction.SitDown(playerId))
+        tableService.receivePlayerAction(game.tableId, playerId, Table.Round.Action.PlayerAction.SitDown(playerId, game.players.size))
     }
 
     fun leave(gameId: UUID, playerId: Int) {

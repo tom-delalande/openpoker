@@ -87,7 +87,8 @@ union ActionOptions {
   Check: CheckOption,
   Bet: BetOption,
   Raise: RaiseOption,
-  PostSmallBlind: PostBigBlindOption,
+  Call: CallOption,
+  PostSmallBlind: PostSmallBlindOption,
   PostBigBlind: PostBigBlindOption,
 }
 
@@ -99,33 +100,45 @@ model CheckOption {
 }
 model BetOption {
   type: "BetOption";
+  minAmount: float64;
+  maxAmount?: float64;
 }
+
+model CallOption {
+  type: "CallOption";
+  amount: float64;
+}
+
 model RaiseOption {
   type: "RaiseOption";
+  minAmount: float64;
+  maxAmount?: float64;
 }
 model PostSmallBlindOption {
   type: "PostSmallBlindOption";
+  amount: float64;
 }
 model PostBigBlindOption {
   type: "PostBigBlindOption";
+  amount: float64;
 }
 
 model PlayerPostedSmallBlind {
   type: "PlayerPostedSmallBlind";
   playerId: int32;
-  amount: int32;
+  amount: float64;
   isAllIn: boolean;
 }
 model PlayerPostedBigBlind {
   type: "PlayerPostedBigBlind";
   playerId: int32;
-  amount: int32;
+  amount: float64;
   isAllIn: boolean;
 }
 model PlayerPostedAnte {
   type: "PlayerPostedAnte";
   playerId: int32;
-  amount: int32;
+  amount: float64;
   isAllIn: boolean;
 }
 model PlayerFolded {
@@ -139,19 +152,19 @@ model PlayerChecked {
 model PlayerBet {
   type: "PlayerBet";
   playerId: int32;
-  amount: int32;
+  amount: float64;
   isAllIn: boolean;
 }
 model PlayerRaised {
   type: "PlayerRaised";
   playerId: int32;
-  amount: int32;
+  amount: float64;
   isAllIn: boolean;
 }
 model PlayerCalled {
   type: "PlayerCalled";
   playerId: int32;
-  amount: int32;
+  amount: float64;
   isAllIn: boolean;
 }
 model PlayerShowedCard {
@@ -165,8 +178,10 @@ union PlayerAction {
   Check: Check,
   Bet: Bet,
   Raise: Raise,
-  PostSmallBlind: PostBigBlind,
+  PostSmallBlind: PostSmallBlind,
   PostBigBlind: PostBigBlind,
+  StandUp: StandUp,
+  SitDown: SitDown,
 }
 
 model Fold {
@@ -177,15 +192,25 @@ model Check {
 }
 model Bet {
   type: "Bet";
+  amount: float64;
 }
 model Raise {
   type: "Raise";
+  amount: float64;
 }
 model PostSmallBlind {
   type: "PostSmallBlind";
+  amount: float64;
 }
 model PostBigBlind {
   type: "PostBigBlind";
+  amount: float64;
+}
+model StandUp {
+  type: "Check";
+}
+model SitDown {
+  type: "Check";
 }
 
 @route("/game")

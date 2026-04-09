@@ -188,6 +188,7 @@ data class Table(
 
                 data class SitDown(
                     override val playerId: Int,
+                    val seat: Int,
                 ) : PlayerAction
 
                 data class StandUp(
