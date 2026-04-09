@@ -100,16 +100,15 @@ export default function Table() {
       <div className="relative w-full max-w-3xl aspect-[4/3]">
         <div className="absolute inset-0 bg-[#35654d] rounded-full border-8 border-[#1a5c32] shadow-2xl">
           <div className="absolute inset-4 bg-[#2d5a3d] rounded-full border-4 border-[#1a472a]">
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
+              <div className="flex gap-2">
+                {COMMUNITY_CARDS.map((card, i) => (
+                  <Card key={i} card={card} />
+                ))}
+              </div>
               <div className="bg-[#0d3d22] text-white px-6 py-2 rounded-full text-xl font-bold border-4 border-[#1a3622]">
                 POT: $2,450
               </div>
-            </div>
-
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex gap-2 mt-16">
-              {COMMUNITY_CARDS.map((card, i) => (
-                <Card key={i} card={card} />
-              ))}
             </div>
 
             {TABLE_PLAYERS.map((player) => (
