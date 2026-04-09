@@ -41,7 +41,7 @@ tasks.test {
     useJUnitPlatform()
 }
 
-val ktorVersion = "2.3.7"
+val ktorVersion = "3.4.2"
 val wireVersion = "6.2.0"
 val grpcVersion = "1.80.0"
 
@@ -57,6 +57,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
 
     implementation("redis.clients:jedis:7.4.1")
     implementation("org.postgresql:postgresql:42.7.10")
@@ -80,6 +81,7 @@ fabrikt {
             generate = enabled
             sealedInterfacesForOneOf = enabled
             serializationLibrary = Kotlinx
+            validationLibrary = NoValidation
         }
     }
 }

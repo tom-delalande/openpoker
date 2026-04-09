@@ -81,6 +81,7 @@ model PlayerActionRequested {
   type: "PlayerActionRequested";
   playerId: int32;
   actionOptions: ActionOptions[];
+  expiry: utcDateTime;
 }
 
 @discriminated
@@ -178,6 +179,7 @@ model PlayerShowedCard {
 union PlayerAction {
   Fold: Fold,
   Check: Check,
+  Call: Call,
   Bet: Bet,
   Raise: Raise,
   PostSmallBlind: PostSmallBlind,
@@ -191,6 +193,10 @@ model Fold {
 }
 model Check {
   type: "Check";
+}
+model Call {
+  type: "Call";
+  amount: float64;
 }
 model Bet {
   type: "Bet";
@@ -209,10 +215,10 @@ model PostBigBlind {
   amount: float64;
 }
 model StandUp {
-  type: "Check";
+  type: "StandUp";
 }
 model SitDown {
-  type: "Check";
+  type: "SitDown";
 }
 
 @route("/auth")
@@ -230,13 +236,9 @@ interface GameService {
 
 @route("/table")
 interface TableService {
-  // TypeSpec/OpenAPI cannot express the bidirectional gRPC stream directly.
-  // This keeps the payload contract while approximating the connect call as a unary operation.
-  @route("/ws/game/{gameId}/token/{token}")
-  @get
+  @route("/ws/table/{tableId}/token/{token}")
   connect(
-    @body action: PlayerAction,
-    @path gameId: string,
+    @path tableId: string,
     @path token: string,
-  ): HandEvent;
+  ): HandEvent | HandEvent[];
 }

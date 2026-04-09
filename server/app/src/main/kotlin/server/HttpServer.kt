@@ -1,6 +1,7 @@
 package server
 
 import app.WebSocketId
+import domain.table.TableService
 import domain.tournament.CashGameService
 import io.ktor.server.application.call
 import io.ktor.server.response.respondText
@@ -47,6 +48,7 @@ fun Route.gameEndpoints(gameService: CashGameService, authRepository: AuthReposi
 fun Route.tableEndpoints(
     websockets: ConcurrentHashMap<WebSocketId, DefaultWebSocketServerSession>,
     authRepository: AuthRepository,
+    tableService: TableService,
 ) {
     route("/table") {
         webSocket("/ws/table/{tableId}/token/{token}") {
@@ -55,6 +57,7 @@ fun Route.tableEndpoints(
 
             val player = authRepository.getPlayer(token) ?: throw IllegalStateException()
             websockets[WebSocketId(player.playerId, tableId)] = this@webSocket
+            tableService.addWebSocketConnection(player.playerId, tableId)
             while (true) {
                 //
             }

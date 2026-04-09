@@ -9,6 +9,7 @@ import io.ktor.server.websocket.WebSocketServerSession
 import io.ktor.server.websocket.sendSerialized
 import java.time.Instant
 import java.util.UUID
+import kotlin.time.toKotlinInstant
 import kotlinx.serialization.ExperimentalSerializationApi
 import server.models.ActionOptions
 import server.models.ActionOptionsBet
@@ -81,22 +82,32 @@ class TableService(
     val historicRepository: HandHistoryRepository,
     val sessions: Map<WebSocketId, WebSocketServerSession>,
 ) {
+
     suspend fun process(now: Instant = Instant.now()) {
         val tables = activeRepository.getActiveTables()
-        tables.forEach { (tableId, table, sockets) ->
+        tables.forEach { (tableId, table, playerIdToEventVersion) ->
             val updated = table.processTable(now)
             val events = updated.toEvents()
-            for (socket in sockets) {
+            val newPlayerIdToEventVersion = playerIdToEventVersion.toMutableMap()
+            for (socket in playerIdToEventVersion) {
                 val (playerId, bookmark) = socket
                 val session = sessions[WebSocketId(playerId, tableId)] ?: throw IllegalStateException()
+                val playerEvents = events.prepareForPlayer(playerId)
                 for (event in events.drop(bookmark)) {
                     session.sendSerialized(event)
                 }
+                newPlayerIdToEventVersion[playerId] = playerEvents.size
             }
 
-            saveTable(tableId, updated)
+            saveTable(tableId, updated, newPlayerIdToEventVersion)
         }
     }
+
+    fun addWebSocketConnection(playerId: Int, tableId: UUID) {
+        val table = activeRepository.get(tableId) ?: throw IllegalStateException()
+        saveTable(tableId, table.table, table.playerIdToEventVersion + (playerId to 0))
+    }
+
 
     fun receivePlayerActions(
         tableId: UUID,
@@ -108,27 +119,16 @@ class TableService(
         val updated = actions.fold(activeTable.table) { table, action ->
             table.processPlayerAction(playerId, action, now)
         }
-        saveTable(tableId, updated)
+        saveTable(tableId, updated, activeTable.playerIdToEventVersion)
     }
 
-    fun receivePlayerAction(
-        tableId: UUID,
-        playerId: Int,
-        action: Table.Round.Action.PlayerAction,
-        now: Instant = Instant.now(),
-    ) {
-        val activeTable = activeRepository.get(tableId)!!
-        val updated = activeTable.table.processPlayerAction(playerId, action, now)
-        saveTable(tableId, updated)
-    }
-
-    fun saveTable(id: UUID, table: Table) {
+    fun saveTable(id: UUID, table: Table, playerIdToEventVersion: Map<Int, Int>) {
         if (table.isFinished) {
             historicRepository.saveHand(id, table)
             val nextHand = table.startNextHand()
-            activeRepository.set(id, nextHand)
+            activeRepository.set(id, nextHand, playerIdToEventVersion)
         } else {
-            activeRepository.set(id, table)
+            activeRepository.set(id, table, playerIdToEventVersion)
         }
     }
 
@@ -258,6 +258,7 @@ class TableService(
                             value = PlayerActionRequested(
                                 type = PlayerActionRequestedType.PLAYER_ACTION_REQUESTED,
                                 playerId = action.playerId,
+                                expiry = action.expiry.toKotlinInstant(),
                                 actionOptions = action.actionOptions.map {
                                     when (it) {
                                         is Table.Round.Action.PlayerAction.RequestAction.ActionOption.Bet -> ActionOptionsBet(
@@ -370,5 +371,19 @@ class TableService(
             Table.Card.Suit.Clubs -> "c"
         }
         return "$rank$suit"
+    }
+
+    fun List<HandEvent>.prepareForPlayer(playerId: Int) = map { event ->
+        when (event) {
+            is HandEventPrivateCardDealt -> if (event.value.playerId == playerId) event else HandEventPrivateCardDealt(
+                value = PrivateCardDealt(
+                    type = PrivateCardDealtType.PRIVATE_CARD_DEALT_EVENT,
+                    playerId = playerId,
+                    cards = event.value.cards.map { "XX" }
+                )
+            )
+
+            else -> event
+        }
     }
 }

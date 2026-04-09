@@ -17,7 +17,12 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
         return tables[id]
     }
 
-    override fun set(id: UUID, table: Table) {
-        tables[id] = ActiveTable(id, table)
+    override fun set(
+        id: UUID,
+        table: Table,
+        sockets: Map<Int, Int>,
+    ) {
+        tables[id] = ActiveTable(id, table, sockets)
     }
+
 }

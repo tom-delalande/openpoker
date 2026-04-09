@@ -4,7 +4,23 @@
  */
 
 export interface paths {
-    "/game/auth": {
+    "/auth/login/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AuthService_login"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/join": {
         parameters: {
             query?: never;
             header?: never;
@@ -13,30 +29,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["GameService_auth"];
+        post: operations["GameService_join"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/game/tables": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["GameService_getTables"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/table/connect": {
+    "/table/ws/table/{tableId}/token/{token}": {
         parameters: {
             query?: never;
             header?: never;
@@ -133,6 +133,12 @@ export interface components {
             /** Format: double */
             maxAmount?: number;
         };
+        Call: {
+            /** @enum {string} */
+            type: "Call";
+            /** Format: double */
+            amount: number;
+        };
         CallOption: {
             /** @enum {string} */
             type: "CallOption";
@@ -161,6 +167,7 @@ export interface components {
             type: "FoldOption";
         };
         GetTablesRequest: Record<string, never>;
+        GetTablesResponse: Record<string, never>;
         HandEvent: components["schemas"]["HandEventPlayerSatDown"] | components["schemas"]["HandEventPlayerStoodUp"] | components["schemas"]["HandEventHandStarted"] | components["schemas"]["HandEventRoundStarted"] | components["schemas"]["HandEventCommunityCardDealt"] | components["schemas"]["HandEventPrivateCardDealt"] | components["schemas"]["HandEventHandFinished"] | components["schemas"]["HandEventPlayerActionRequested"] | components["schemas"]["HandEventPlayerPostedSmallBlind"] | components["schemas"]["HandEventPlayerPostedBigBlind"] | components["schemas"]["HandEventPlayerPostedAnte"] | components["schemas"]["HandEventPlayerFolded"] | components["schemas"]["HandEventPlayerChecked"] | components["schemas"]["HandEventPlayerBet"] | components["schemas"]["HandEventPlayerRaised"] | components["schemas"]["HandEventPlayerCalled"] | components["schemas"]["HandEventPlayerShowedCard"];
         HandEventCommunityCardDealt: {
             /**
@@ -309,7 +316,7 @@ export interface components {
             /** Format: int32 */
             dealerButton: number;
         };
-        PlayerAction: components["schemas"]["PlayerActionFold"] | components["schemas"]["PlayerActionCheck"] | components["schemas"]["PlayerActionBet"] | components["schemas"]["PlayerActionRaise"] | components["schemas"]["PlayerActionPostSmallBlind"] | components["schemas"]["PlayerActionPostBigBlind"] | components["schemas"]["PlayerActionStandUp"] | components["schemas"]["PlayerActionSitDown"];
+        PlayerAction: components["schemas"]["PlayerActionFold"] | components["schemas"]["PlayerActionCheck"] | components["schemas"]["PlayerActionCall"] | components["schemas"]["PlayerActionBet"] | components["schemas"]["PlayerActionRaise"] | components["schemas"]["PlayerActionPostSmallBlind"] | components["schemas"]["PlayerActionPostBigBlind"] | components["schemas"]["PlayerActionStandUp"] | components["schemas"]["PlayerActionSitDown"];
         PlayerActionBet: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -317,6 +324,14 @@ export interface components {
              */
             kind: "Bet";
             value: components["schemas"]["Bet"];
+        };
+        PlayerActionCall: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "Call";
+            value: components["schemas"]["Call"];
         };
         PlayerActionCheck: {
             /**
@@ -364,6 +379,8 @@ export interface components {
             /** Format: int32 */
             playerId: number;
             actionOptions: components["schemas"]["ActionOptions"][];
+            /** Format: date-time */
+            expiry: string;
         };
         PlayerActionSitDown: {
             /**
@@ -452,8 +469,11 @@ export interface components {
             type: "PlayerSatDownEvent";
             /** Format: int32 */
             playerId: number;
+            playerName: string;
             /** Format: int32 */
             seat: number;
+            /** Format: double */
+            stack: number;
         };
         PlayerShowedCard: {
             /** @enum {string} */
@@ -518,11 +538,11 @@ export interface components {
         };
         SitDown: {
             /** @enum {string} */
-            type: "Check";
+            type: "SitDown";
         };
         StandUp: {
             /** @enum {string} */
-            type: "Check";
+            type: "StandUp";
         };
     };
     responses: never;
@@ -533,18 +553,16 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    GameService_auth: {
+    AuthService_login: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AuthRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description The request has succeeded. */
             200: {
@@ -552,30 +570,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthResponse"];
+                    "text/plain": string;
                 };
             };
         };
     };
-    GameService_getTables: {
+    GameService_join: {
         parameters: {
-            query?: never;
+            query: {
+                token: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GetTablesRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description The request has succeeded. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/plain": string;
+                };
             };
         };
     };
@@ -583,14 +601,13 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                tableId: string;
+                token: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlayerAction"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description The request has succeeded. */
             200: {
@@ -598,7 +615,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HandEvent"];
+                    "application/json": components["schemas"]["HandEvent"] | components["schemas"]["HandEvent"][];
                 };
             };
         };

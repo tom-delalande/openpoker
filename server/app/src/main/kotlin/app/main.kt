@@ -16,7 +16,8 @@ import io.ktor.server.websocket.WebSockets
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -37,29 +38,27 @@ suspend fun main() {
     val tableService = TableService(activeTableStateRepository, handHistoryRepository, websockets)
     val gameService = CashGameService(cashGameRepository, tableService)
 
-    coroutineScope {
-        launch {
-            while (true) {
-                for (websocket in websockets) {
-                    val (playerId, tableId) = websocket.key
-                    val session = websocket.value
+    CoroutineScope(Dispatchers.Default).launch {
+        while (true) {
+            for (websocket in websockets) {
+                val (playerId, tableId) = websocket.key
+                val session = websocket.value
 
-                    val actions = session.process()
-                    tableService.receivePlayerActions(tableId, playerId, actions.map { it.toDomain(playerId) })
-                }
-                tableService.process()
-                delay(500.milliseconds)
+                val actions = session.process()
+                tableService.receivePlayerActions(tableId, playerId, actions.map { it.toDomain(playerId) })
             }
+            tableService.process()
+            delay(500.milliseconds)
         }
     }
 
-    embeddedServer(Netty, port = 9090) {
+    embeddedServer(Netty, port = 3001) {
         install(WebSockets)
         routing {
             route("/api") {
                 authEndpoints(authRepository)
                 gameEndpoints(gameService, authRepository)
-                tableEndpoints(websockets, authRepository)
+                tableEndpoints(websockets, authRepository, tableService)
             }
         }
     }.start(wait = true)

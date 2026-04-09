@@ -6,7 +6,7 @@ import java.util.UUID
 interface ActiveTableStateRepository {
     fun getActiveTables(): List<ActiveTable>
     fun get(id: UUID): ActiveTable?
-    fun set(id: UUID, table: Table)
+    fun set(id: UUID, table: Table, sockets: Map<Int, Int>)
 }
 
 data class ActiveTable(val id: UUID, val table: Table, val playerIdToEventVersion: Map<Int, Int>)

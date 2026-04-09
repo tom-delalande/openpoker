@@ -7,6 +7,7 @@ import domain.model.Table.Round.Action.PlayerAction.*
 import kotlinx.serialization.ExperimentalSerializationApi
 import server.models.PlayerAction
 import server.models.PlayerActionBet
+import server.models.PlayerActionCall
 import server.models.PlayerActionCheck
 import server.models.PlayerActionFold
 import server.models.PlayerActionPostBigBlind
@@ -58,5 +59,11 @@ fun PlayerAction.toDomain(playerId: Int): Table.Round.Action.PlayerAction = when
 
     is PlayerActionStandUp -> StandUp(
         playerId = playerId,
+    )
+
+    is PlayerActionCall -> Call(
+        playerId = playerId,
+        amount = value.amount,
+        isAllIn = false, // TODO: [medium] set this somewhere
     )
 }
