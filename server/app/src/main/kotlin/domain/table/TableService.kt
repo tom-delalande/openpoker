@@ -10,6 +10,9 @@ import io.ktor.server.websocket.sendSerialized
 import java.time.Instant
 import java.util.UUID
 import kotlin.time.toKotlinInstant
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.serialization.ExperimentalSerializationApi
 import server.models.ActionOptions
 import server.models.ActionOptionsBet
@@ -80,7 +83,7 @@ import server.models.RoundStartedType
 class TableService(
     val activeRepository: ActiveTableStateRepository,
     val historicRepository: HandHistoryRepository,
-    val sessions: Map<WebSocketId, WebSocketServerSession>,
+    val sessions: Map<WebSocketId, MutableSharedFlow<HandEvent>>,
 ) {
 
     suspend fun process(now: Instant = Instant.now()) {
@@ -94,7 +97,7 @@ class TableService(
                 val session = sessions[WebSocketId(playerId, tableId)] ?: throw IllegalStateException()
                 val playerEvents = events.prepareForPlayer(playerId)
                 for (event in events.drop(bookmark)) {
-                    session.sendSerialized(event)
+                    session.emit(event)
                 }
                 newPlayerIdToEventVersion[playerId] = playerEvents.size
             }

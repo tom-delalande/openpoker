@@ -83,6 +83,7 @@ fun Table.processTable(now: Instant): Table {
     if (rounds.isEmpty() && players.size >= 3) {
         return startNextHand()
     }
+
     return when (val latestAction = currentRound?.actions?.lastOrNull()) {
         is RequestAction -> {
             if (latestAction.expiry.isBefore(now)) {
@@ -160,7 +161,7 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
 }
 
 private fun Table.attemptFinishRound(): Table {
-    if (rounds.isEmpty()) {
+    if (rounds.isEmpty() || playerActions.isEmpty() || players.isEmpty()) {
         return copy()
     }
 
@@ -240,7 +241,7 @@ private fun Table.calculateWinners(): List<Int> {
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
-    if (rounds.isEmpty()) return copy()
+    if (rounds.isEmpty() || playerActions.isEmpty() || players.isEmpty()) return copy()
     val lastAction = currentRound?.actions?.filterIsInstance<Round.Action.PlayerAction>()?.lastOrNull()
     val lastActionPlayer = players.find { it.id == lastAction?.playerId } ?: players[dealerSeat]
 
