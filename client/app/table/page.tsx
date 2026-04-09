@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useGameStore } from '../../src/store/gameStore';
 import { tableSocket } from '../../src/services/tableSocket';
 import { processEvents } from '../../src/store/gameEvents';
@@ -119,7 +118,7 @@ function PlayerSeat({
   );
 }
 
-function TableContent({ tableId }: { tableId: string | null }) {
+function TableContent() {
   const {
     playerId,
     players,
@@ -132,9 +131,19 @@ function TableContent({ tableId }: { tableId: string | null }) {
     error,
     setTableId,
     setPlayerId,
+    setCurrentView,
   } = useGameStore();
 
+  const tableId = useMemo(() => useGameStore.getState().tableId, []);
   const isMyTurn = currentPlayerId === playerId && actionOptions !== null;
+
+  const handleLeaveTable = useCallback(() => {
+    tableSocket.disconnect();
+    localStorage.removeItem('tableId');
+    setTableId(null);
+    useGameStore.getState().reset();
+    setCurrentView('home');
+  }, [setTableId, setCurrentView]);
   const [betAmount, setBetAmount] = useState('');
 
   useEffect(() => {
@@ -213,6 +222,12 @@ function TableContent({ tableId }: { tableId: string | null }) {
   return (
     <div className="min-h-screen bg-[#0f3020] flex flex-col items-center justify-center p-4">
       <div className="mb-4 flex items-center gap-4">
+        <button
+          onClick={handleLeaveTable}
+          className="text-white text-sm hover:text-red-400 transition-colors"
+        >
+          ← Leave Table
+        </button>
         <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
         <span className="text-white text-sm">
           {isConnected ? 'Connected' : 'Disconnected'}
@@ -300,24 +315,6 @@ function TableContent({ tableId }: { tableId: string | null }) {
   );
 }
 
-function TableWithParams() {
-  const searchParams = useSearchParams();
-  const tableId = searchParams.get('tableId');
-  return <TableContent tableId={tableId} />;
-}
-
-function TableFallback() {
-  return (
-    <div className="min-h-screen bg-[#0f3020] flex items-center justify-center">
-      <div className="text-white">Loading...</div>
-    </div>
-  );
-}
-
 export default function TablePage() {
-  return (
-    <Suspense fallback={<TableFallback />}>
-      <TableWithParams />
-    </Suspense>
-  );
+  return <TableContent />;
 }

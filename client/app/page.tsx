@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useGameStore } from '../src/store/gameStore';
 
@@ -11,14 +10,13 @@ function getInitialPlayerName(): string {
   return '';
 }
 
-export default function Home() {
-  const router = useRouter();
+export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
   const [playerName, setPlayerName] = useState(getInitialPlayerName);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { setAuthToken, setPlayerName: setStorePlayerName } = useGameStore();
+  const { setAuthToken, setPlayerName: setStorePlayerName, setTableId, setCurrentView } = useGameStore();
 
   const handleJoinTable = async () => {
     const name = playerName.trim() || `Player_${Math.floor(Math.random() * 10000)}`;
@@ -62,7 +60,8 @@ export default function Home() {
       const tableId = await joinFetchResponse.text();
       console.log('Table ID:', tableId);
       localStorage.setItem('tableId', tableId);
-      router.push(`/table?tableId=${tableId}`);
+      setTableId(tableId);
+      setCurrentView('table');
     } catch (err) {
       console.error('Join error:', err);
       setError('Failed to join table. Please try again.');

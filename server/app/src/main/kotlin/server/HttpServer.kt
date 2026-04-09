@@ -54,7 +54,7 @@ fun Route.tableEndpoints(
             val tableId = call.parameters["tableId"]?.let { UUID.fromString(it) } ?: throw IllegalStateException()
             val token = call.parameters["token"] ?: throw IllegalStateException()
 
-            val player = authRepository.getPlayer(token) ?: throw IllegalStateException()
+            val player = authRepository.getPlayer(token) ?: return@webSocket
             websockets[WebSocketId(player.playerId, tableId)] = this@webSocket
             tableService.addWebSocketConnection(player.playerId, tableId)
             while (true) {
@@ -65,8 +65,10 @@ fun Route.tableEndpoints(
 }
 
 @OptIn(ExperimentalSerializationApi::class)
-suspend fun WebSocketServerSession.process(): List<PlayerAction> = buildList {
-    for (frame in incoming) {
+fun WebSocketServerSession.process(): List<PlayerAction> = buildList {
+    while (true) {
+        val result = incoming.tryReceive()
+        val frame = result.getOrNull() ?: break
         frame as? Frame.Text ?: continue
         val receivedText = frame.readText()
         val playerAction = json.decodeFromString<PlayerAction>(receivedText)

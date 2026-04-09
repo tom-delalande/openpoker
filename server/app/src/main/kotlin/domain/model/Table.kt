@@ -17,8 +17,8 @@ data class Table(
     val isFinished: Boolean = false,
     val seed: Long,
 ) {
-    val currentRound: Round
-        get() = rounds.last()
+    val currentRound: Round?
+        get() = rounds.lastOrNull()
 
     val playerActions: List<Round.Action.PlayerAction>
         get() = rounds.flatMap { it.actions }.filterIsInstance<Round.Action.PlayerAction>()

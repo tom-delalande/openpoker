@@ -6,6 +6,7 @@ import data.inmemory.InMemoryCashGameRepository
 import data.inmemory.InMemoryHandHistoryRepository
 import domain.table.TableService
 import domain.tournament.CashGameService
+import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -23,6 +24,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import server.authEndpoints
 import server.gameEndpoints
 import server.process
@@ -41,21 +44,28 @@ fun main() {
     val gameService = CashGameService(cashGameRepository, tableService)
 
     CoroutineScope(Dispatchers.Default).launch {
+        val logger = LoggerFactory.getLogger("ProcessingThread")
         while (true) {
-            for (websocket in websockets) {
-                val (playerId, tableId) = websocket.key
-                val session = websocket.value
+            try {
+                for (websocket in websockets) {
+                    val (playerId, tableId) = websocket.key
+                    val session = websocket.value
 
-                val actions = session.process()
-                tableService.receivePlayerActions(tableId, playerId, actions.map { it.toDomain(playerId) })
+                    val actions = session.process()
+                    tableService.receivePlayerActions(tableId, playerId, actions.map { it.toDomain(playerId) })
+                }
+                tableService.process()
+                delay(500.milliseconds)
+            } catch (exception: Exception) {
+                logger.error("error when processing", exception)
             }
-            tableService.process()
-            delay(500.milliseconds)
         }
     }
 
     embeddedServer(Netty, port = 3001) {
-        install(WebSockets)
+        install(WebSockets) {
+            contentConverter = KotlinxWebsocketSerializationConverter(Json)
+        }
         install(ContentNegotiation) {
             json()
         }

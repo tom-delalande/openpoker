@@ -81,9 +81,9 @@ private fun Table.dealCards(): Table {
 
 fun Table.processTable(now: Instant): Table {
     if (rounds.isEmpty() && players.size >= 3) {
-        // TODO: [high] start hand
+        return startNextHand()
     }
-    return when (val latestAction = currentRound.actions.last()) {
+    return when (val latestAction = currentRound?.actions?.lastOrNull()) {
         is RequestAction -> {
             if (latestAction.expiry.isBefore(now)) {
                 this
@@ -117,7 +117,13 @@ fun Table.startNextHand(
         smallBlindAmount = smallBlindAmount,
         bigBlindAmount = bigBlindAmount,
         isFinished = false,
-        rounds = listOf(),
+        rounds = listOf(
+            Round(
+                id = 0,
+                street = Round.Street.PreFlop,
+                actions = listOf()
+            )
+        ),
         pots = listOf(),
         seed = seed,
     )
@@ -154,6 +160,10 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
 }
 
 private fun Table.attemptFinishRound(): Table {
+    if (rounds.isEmpty()) {
+        return copy()
+    }
+
     if (livePlayers.count { !it.isOut } == 1) {
         return finishHand()
     }
@@ -163,16 +173,17 @@ private fun Table.attemptFinishRound(): Table {
     val lastRaiseAction = playerActions.dropLast(1).findLast { it is Raise || it is PostBigBlind }
 
     if (lastRaiseAction?.playerId == lastActionPlayer?.id) {
-        if (currentRound.street == Round.Street.River || livePlayers.all { it.isAllIn }) {
+        if (currentRound?.street == Round.Street.River || livePlayers.all { it.isAllIn }) {
             // TODO: [medium] Add showdown events if necessary
             return finishHand()
         } else {
-            val street = when (currentRound.street) {
+            val street = when (currentRound?.street) {
                 Round.Street.PreFlop -> Round.Street.Flop
                 Round.Street.Flop -> Round.Street.Turn
                 Round.Street.Turn -> Round.Street.River
                 Round.Street.River,
                 Round.Street.Showdown,
+                null,
                     -> throw IllegalStateException("Cannot go to next round, you should have finished hand.")
             }
             val cards = when (street) {
@@ -185,7 +196,7 @@ private fun Table.attemptFinishRound(): Table {
             return copy(
                 rounds = rounds.plus(
                     Round(
-                        id = currentRound.id + 1,
+                        id = currentRound!!.id + 1,
                         street = street,
                         actions = listOf(
                             Round.Action.DealCommunityCards(cards)
@@ -229,7 +240,8 @@ private fun Table.calculateWinners(): List<Int> {
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
-    val lastAction = currentRound.actions.filterIsInstance<Round.Action.PlayerAction>().lastOrNull()
+    if (rounds.isEmpty()) return copy()
+    val lastAction = currentRound?.actions?.filterIsInstance<Round.Action.PlayerAction>()?.lastOrNull()
     val lastActionPlayer = players.find { it.id == lastAction?.playerId } ?: players[dealerSeat]
 
     val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
@@ -238,7 +250,7 @@ private fun Table.requestNextAction(now: Instant): Table {
     val playerStack = livePlayersById[nextPlayer.id]!!.currentStack
 
     val actionOptions = buildList {
-        if (currentRound.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id && playerActions.filterIsInstance<PostSmallBlind>()
+        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id && playerActions.filterIsInstance<PostSmallBlind>()
                 .none()
         ) {
             add(ActionOption.Fold)
@@ -246,7 +258,7 @@ private fun Table.requestNextAction(now: Instant): Table {
             return@buildList
         }
 
-        if (currentRound.street == Round.Street.PreFlop && nextPlayer.id == bigBlindPlayer.id && playerActions.filterIsInstance<PostBigBlind>()
+        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == bigBlindPlayer.id && playerActions.filterIsInstance<PostBigBlind>()
                 .none()
         ) {
             add(ActionOption.Fold)
