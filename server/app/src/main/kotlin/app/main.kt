@@ -33,10 +33,9 @@ suspend fun main() {
     val cashGameRepository = InMemoryCashGameRepository()
     val authRepository = InMemoryAuthRepository()
 
-    val tableService = TableService(activeTableStateRepository, handHistoryRepository)
-    val gameService = CashGameService(cashGameRepository, tableService)
-
     val websockets = ConcurrentHashMap<WebSocketId, DefaultWebSocketServerSession>()
+    val tableService = TableService(activeTableStateRepository, handHistoryRepository, websockets)
+    val gameService = CashGameService(cashGameRepository, tableService)
 
     coroutineScope {
         launch {
@@ -59,8 +58,8 @@ suspend fun main() {
         routing {
             route("/api") {
                 authEndpoints(authRepository)
-                gameEndpoints(gameService)
-                tableEndpoints(websockets, authRepository, tableService)
+                gameEndpoints(gameService, authRepository)
+                tableEndpoints(websockets, authRepository)
             }
         }
     }.start(wait = true)

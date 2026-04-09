@@ -11,10 +11,17 @@ interface CashGameRepository {
 
 
     data class CashGame(
-        val id: UUID,
-        val tableId: UUID,
+        val id: UUID = UUID.randomUUID(),
+        val tableId: UUID = UUID.randomUUID(),
+        val status: GameStatus = GameStatus.Registering,
         val players: List<Player> = emptyList(),
     )
+
+    enum class GameStatus {
+        Registering,
+        Playing,
+        Finished,
+    }
 
     data class Player(
         val id: Int,

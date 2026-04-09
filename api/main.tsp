@@ -41,7 +41,9 @@ union HandEvent {
 model PlayerSatDown {
   type: "PlayerSatDownEvent";
   playerId: int32;
+  playerName: string;
   seat: int32;
+  stack: float64;
 }
 
 model PlayerStoodUp {
@@ -213,23 +215,28 @@ model SitDown {
   type: "Check";
 }
 
+@route("/auth")
+interface AuthService {
+  @route("/login/{name}")
+  @get
+  login(@path name: string): string;
+}
 @route("/game")
 interface GameService {
-  @route("/auth")
+  @route("/join")
   @post
-  auth(@body request: AuthRequest): AuthResponse;
-
-  @route("/tables")
-  @post
-  getTables(@body request: GetTablesRequest): GetTablesResponse;
+  join(@query token: string): string;
 }
 
 @route("/table")
 interface TableService {
   // TypeSpec/OpenAPI cannot express the bidirectional gRPC stream directly.
   // This keeps the payload contract while approximating the connect call as a unary operation.
-  @route("/connect")
+  @route("/ws/game/{gameId}/token/{token}")
   @get
-  connect(@body action: PlayerAction): HandEvent;
+  connect(
+    @body action: PlayerAction,
+    @path gameId: string,
+    @path token: string,
+  ): HandEvent;
 }
-

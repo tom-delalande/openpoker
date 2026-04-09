@@ -1,6 +1,12 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package domain.table
 
+import app.WebSocketId
 import domain.model.Table
+import domain.tournament.CashGameRepository
+import io.ktor.server.websocket.WebSocketServerSession
+import io.ktor.server.websocket.sendSerialized
 import java.time.Instant
 import java.util.UUID
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -73,12 +79,22 @@ import server.models.RoundStartedType
 class TableService(
     val activeRepository: ActiveTableStateRepository,
     val historicRepository: HandHistoryRepository,
+    val sessions: Map<WebSocketId, WebSocketServerSession>,
 ) {
-    fun process(now: Instant = Instant.now()) {
+    suspend fun process(now: Instant = Instant.now()) {
         val tables = activeRepository.getActiveTables()
-        tables.forEach { (id, table) ->
+        tables.forEach { (tableId, table, sockets) ->
             val updated = table.processTable(now)
-            saveTable(id, updated)
+            val events = updated.toEvents()
+            for (socket in sockets) {
+                val (playerId, bookmark) = socket
+                val session = sessions[WebSocketId(playerId, tableId)] ?: throw IllegalStateException()
+                for (event in events.drop(bookmark)) {
+                    session.sendSerialized(event)
+                }
+            }
+
+            saveTable(tableId, updated)
         }
     }
 
@@ -118,6 +134,19 @@ class TableService(
 
     @OptIn(ExperimentalSerializationApi::class)
     fun Table.toEvents(): List<HandEvent> = buildList {
+        players.forEachIndexed { index, player ->
+            add(
+                HandEventPlayerSatDown(
+                    value = PlayerSatDown(
+                        type = PlayerSatDownType.PLAYER_SAT_DOWN_EVENT,
+                        playerId = player.id,
+                        playerName = player.name,
+                        stack = player.stack,
+                        seat = index,
+                    )
+                )
+            )
+        }
         rounds.forEach { round ->
             if (round.id == 0) {
                 add(
@@ -297,6 +326,8 @@ class TableService(
                             value = PlayerSatDown(
                                 type = PlayerSatDownType.PLAYER_SAT_DOWN_EVENT,
                                 playerId = action.playerId,
+                                playerName = action.playerName,
+                                stack = action.stack,
                                 seat = action.seat
                             )
                         )

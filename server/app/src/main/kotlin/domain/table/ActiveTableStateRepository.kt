@@ -9,4 +9,4 @@ interface ActiveTableStateRepository {
     fun set(id: UUID, table: Table)
 }
 
-data class ActiveTable(val id: UUID, val table: Table)
+data class ActiveTable(val id: UUID, val table: Table, val playerIdToEventVersion: Map<Int, Int>)

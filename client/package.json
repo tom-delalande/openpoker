@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate:api": "openapi-typescript ../api/tsp-output/schema/openapi.yaml -o src/lib/api/types.d.ts"
   },
   "dependencies": {
     "next": "16.2.3",

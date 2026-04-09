@@ -1,11 +1,9 @@
 package server
 
 import app.WebSocketId
-import domain.model.Table
-import domain.table.TableService
 import domain.tournament.CashGameService
 import io.ktor.server.application.call
-import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
@@ -30,33 +28,35 @@ fun Route.authEndpoints(authRepository: AuthRepository) {
             val playerId = Random.nextInt()
             val token = UUID.randomUUID().toString()
             authRepository.saveToken(token, playerId, name)
-            call.respond(token)
+            call.respondText(token)
         }
     }
 }
 
-fun Route.gameEndpoints(gameService: CashGameService) {
+fun Route.gameEndpoints(gameService: CashGameService, authRepository: AuthRepository) {
     route("/game") {
-
+        post("/join") {
+            val token = call.request.queryParameters["token"] ?: throw IllegalStateException()
+            val player = authRepository.getPlayer(token) ?: throw IllegalStateException()
+            val tableId = gameService.createOrJoin(player.playerId, player.playerName)
+            call.respondText(tableId.toString())
+        }
     }
 }
 
 fun Route.tableEndpoints(
     websockets: ConcurrentHashMap<WebSocketId, DefaultWebSocketServerSession>,
     authRepository: AuthRepository,
-    tableService: TableService,
 ) {
-
-
     route("/table") {
-        webSocket("/game/{gameId}/token/{token}") {
-            val gameId = call.parameters["gameId"]?.let { UUID.fromString(it) } ?: throw IllegalStateException()
+        webSocket("/ws/table/{tableId}/token/{token}") {
+            val tableId = call.parameters["tableId"]?.let { UUID.fromString(it) } ?: throw IllegalStateException()
             val token = call.parameters["token"] ?: throw IllegalStateException()
 
             val player = authRepository.getPlayer(token) ?: throw IllegalStateException()
-            websockets[WebSocketId(player.playerId, gameId)] = this@webSocket
+            websockets[WebSocketId(player.playerId, tableId)] = this@webSocket
             while (true) {
-
+                //
             }
         }
     }

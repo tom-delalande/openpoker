@@ -52,6 +52,8 @@ fun PlayerAction.toDomain(playerId: Int): Table.Round.Action.PlayerAction = when
     is PlayerActionSitDown -> SitDown(
         playerId = playerId,
         seat = 0, // TODO: [medium] set this somewhere
+        playerName = "", // TODO
+        stack = 0.0, // TODO
     )
 
     is PlayerActionStandUp -> StandUp(
