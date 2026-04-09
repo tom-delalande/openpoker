@@ -8,3 +8,4 @@ server/.kotlin/errors
 server/.github/workflows
 server/app/build
 server/build/reports/problems
+client/node_modules
