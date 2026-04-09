@@ -1,7 +1,6 @@
 'use client';
 
-const SUITS = ['♠', '♥', '♦', '♣'];
-const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const LOCAL_PLAYER_ID = 9;
 
 interface Card {
   suit: string;
@@ -12,20 +11,33 @@ interface Player {
   id: number;
   name: string;
   stack: number;
+  seat: number;
   cards?: Card[];
-  position: { x: number; y: number };
 }
 
 const TABLE_PLAYERS: Player[] = [
-  { id: 1, name: 'Player 1', stack: 1000, position: { x: 50, y: 5 } },
-  { id: 2, name: 'Player 2', stack: 1500, position: { x: 85, y: 22 } },
-  { id: 3, name: 'Player 3', stack: 2000, position: { x: 85, y: 50 } },
-  { id: 4, name: 'Player 4', stack: 1200, position: { x: 70, y: 78 } },
-  { id: 5, name: 'Player 5', stack: 1800, position: { x: 50, y: 92 } },
-  { id: 6, name: 'Player 6', stack: 900, position: { x: 30, y: 78 } },
-  { id: 7, name: 'Player 7', stack: 1100, position: { x: 15, y: 50 } },
-  { id: 8, name: 'Player 8', stack: 1600, position: { x: 15, y: 22 } },
-  { id: 9, name: 'You', stack: 5000, cards: [{ suit: '♠', rank: 'A' }, { suit: '♥', rank: 'K' }], position: { x: 30, y: 5 } },
+  { id: 1, name: 'Player 1', stack: 1000, seat: 0 },
+  { id: 2, name: 'Player 2', stack: 1500, seat: 1 },
+  { id: 3, name: 'Player 3', stack: 2000, seat: 2 },
+  { id: 4, name: 'Player 4', stack: 1200, seat: 3 },
+  { id: 5, name: 'Player 5', stack: 1800, seat: 4 },
+  { id: 6, name: 'Player 6', stack: 900, seat: 5 },
+  { id: 7, name: 'Player 7', stack: 1100, seat: 6 },
+  { id: 8, name: 'Player 8', stack: 1600, seat: 7 },
+  { id: 9, name: 'You', stack: 5000, seat: 8, cards: [{ suit: '♠', rank: 'A' }, { suit: '♥', rank: 'K' }] },
+];
+
+const DEALER_SEAT = 4;
+
+const SEAT_POSITIONS = [
+  { x: 50, y: 8 },
+  { x: 80, y: 18 },
+  { x: 90, y: 40 },
+  { x: 80, y: 65 },
+  { x: 50, y: 92 },
+  { x: 20, y: 65 },
+  { x: 10, y: 40 },
+  { x: 20, y: 18 },
 ];
 
 const COMMUNITY_CARDS: Card[] = [
@@ -55,12 +67,21 @@ function Card({ card, hidden }: { card: Card | null; hidden?: boolean }) {
   );
 }
 
-function PlayerSeat({ player }: { player: Player }) {
+function PlayerSeat({ player, isDealer, localPlayerSeat }: { player: Player; isDealer: boolean; localPlayerSeat: number }) {
+  const relativeSeat = (player.seat - localPlayerSeat + SEAT_POSITIONS.length) % SEAT_POSITIONS.length;
+  const seatIndex = (relativeSeat + 4) % SEAT_POSITIONS.length;
+  const position = SEAT_POSITIONS[seatIndex];
+
   return (
     <div
       className="absolute flex flex-col items-center"
-      style={{ left: `${player.position.x}%`, top: `${player.position.y}%`, transform: 'translate(-50%, -50%)' }}
+      style={{ left: `${position.x}%`, top: `${position.y}%`, transform: 'translate(-50%, -50%)' }}
     >
+      {isDealer && (
+        <div className="absolute -top-6 w-6 h-6 bg-white rounded-full border-2 border-[#1a5c32] flex items-center justify-center text-xs font-bold text-[#1a5c32] shadow-md">
+          D
+        </div>
+      )}
       <div className="flex gap-1 mb-1">
         <Card card={player.cards?.[0] ?? null} hidden={!player.cards} />
         <Card card={player.cards?.[1] ?? null} hidden={!player.cards} />
@@ -92,7 +113,12 @@ export default function Table() {
             </div>
 
             {TABLE_PLAYERS.map((player) => (
-              <PlayerSeat key={player.id} player={player} />
+              <PlayerSeat 
+                key={player.id} 
+                player={player} 
+                isDealer={player.seat === DEALER_SEAT}
+                localPlayerSeat={TABLE_PLAYERS.find(p => p.id === LOCAL_PLAYER_ID)!.seat}
+              />
             ))}
           </div>
         </div>
