@@ -3,7 +3,6 @@ package server
 import app.WebSocketId
 import domain.table.TableService
 import domain.tournament.CashGameService
-import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post

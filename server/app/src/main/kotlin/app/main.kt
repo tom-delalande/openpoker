@@ -55,11 +55,9 @@ suspend fun main() {
     embeddedServer(Netty, port = 3001) {
         install(WebSockets)
         routing {
-            route("/api") {
-                authEndpoints(authRepository)
-                gameEndpoints(gameService, authRepository)
-                tableEndpoints(websockets, authRepository, tableService)
-            }
+            authEndpoints(authRepository)
+            gameEndpoints(gameService, authRepository)
+            tableEndpoints(websockets, authRepository, tableService)
         }
     }.start(wait = true)
 }
