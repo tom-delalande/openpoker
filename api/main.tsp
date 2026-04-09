@@ -224,7 +224,7 @@ model SitDown {
 @route("/auth")
 interface AuthService {
   @route("/login/{name}")
-  @get
+  @post
   login(@path name: string): string;
 }
 @route("/game")
@@ -237,8 +237,6 @@ interface GameService {
 @route("/table")
 interface TableService {
   @route("/ws/table/{tableId}/token/{token}")
-  connect(
-    @path tableId: string,
-    @path token: string,
-  ): HandEvent | HandEvent[];
+  connect(@path tableId: string, @path token: string): HandEvent | HandEvent[];
 }
+

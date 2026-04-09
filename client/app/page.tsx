@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { client } from '../src/lib/api/client';
 import { useGameStore } from '../src/store/gameStore';
 
 function getInitialPlayerName(): string {
@@ -27,29 +26,41 @@ export default function Home() {
     setError(null);
 
     try {
-      const loginResponse = await client.GET('/auth/login/{name}', {
-        params: { path: { name } },
-      });
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-      if (loginResponse.error) {
+      const loginResponse = await fetch(`${apiUrl}/auth/login/${encodeURIComponent(name)}`, {
+        method: 'POST',
+      });
+      console.log('Login response:', loginResponse);
+      
+      if (!loginResponse.ok) {
         throw new Error('Login failed');
       }
+      
+      const token = await loginResponse.text();
+      console.log('Token:', token);
+      
+      if (!token || typeof token !== 'string') {
+        throw new Error('Invalid token received');
+      }
 
-      const token = loginResponse.data;
       setAuthToken(token);
       setStorePlayerName(name);
       localStorage.setItem('playerName', name);
       localStorage.setItem('authToken', token);
 
-      const joinResponse = await client.POST('/game/join', {
-        params: { query: { token } },
+      console.log('Sending join request to:', `${apiUrl}/game/join?token=${token}`);
+      const joinFetchResponse = await fetch(`${apiUrl}/game/join?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
       });
-
-      if (joinResponse.error) {
-        throw new Error('Failed to join game');
+      console.log('Join fetch response status:', joinFetchResponse.status);
+      
+      if (!joinFetchResponse.ok) {
+        throw new Error(`Failed to join game: ${joinFetchResponse.status}`);
       }
-
-      const tableId = joinResponse.data;
+      
+      const tableId = await joinFetchResponse.text();
+      console.log('Table ID:', tableId);
       localStorage.setItem('tableId', tableId);
       router.push(`/table?tableId=${tableId}`);
     } catch (err) {

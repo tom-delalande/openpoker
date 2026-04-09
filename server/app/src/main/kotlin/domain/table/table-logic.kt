@@ -80,6 +80,9 @@ private fun Table.dealCards(): Table {
 }
 
 fun Table.processTable(now: Instant): Table {
+    if (rounds.isEmpty() && players.size >= 3) {
+        // TODO: [high] start hand
+    }
     return when (val latestAction = currentRound.actions.last()) {
         is RequestAction -> {
             if (latestAction.expiry.isBefore(now)) {

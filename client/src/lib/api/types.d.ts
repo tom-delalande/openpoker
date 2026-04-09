@@ -11,9 +11,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["AuthService_login"];
+        get?: never;
         put?: never;
-        post?: never;
+        post: operations["AuthService_login"];
         delete?: never;
         options?: never;
         head?: never;

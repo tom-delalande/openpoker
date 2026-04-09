@@ -3,7 +3,7 @@ package server
 import app.WebSocketId
 import domain.table.TableService
 import domain.tournament.CashGameService
-import io.ktor.server.response.respondText
+import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
@@ -28,7 +28,7 @@ fun Route.authEndpoints(authRepository: AuthRepository) {
             val playerId = Random.nextInt()
             val token = UUID.randomUUID().toString()
             authRepository.saveToken(token, playerId, name)
-            call.respondText(token)
+            call.respond(token)
         }
     }
 }
@@ -39,7 +39,7 @@ fun Route.gameEndpoints(gameService: CashGameService, authRepository: AuthReposi
             val token = call.request.queryParameters["token"] ?: throw IllegalStateException()
             val player = authRepository.getPlayer(token) ?: throw IllegalStateException()
             val tableId = gameService.createOrJoin(player.playerId, player.playerName)
-            call.respondText(tableId.toString())
+            call.respond(tableId.toString())
         }
     }
 }

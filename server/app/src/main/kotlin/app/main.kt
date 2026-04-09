@@ -6,9 +6,11 @@ import data.inmemory.InMemoryCashGameRepository
 import data.inmemory.InMemoryHandHistoryRepository
 import domain.table.TableService
 import domain.tournament.CashGameService
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
@@ -28,7 +30,7 @@ import server.tableEndpoints
 import server.toDomain
 
 @OptIn(ExperimentalSerializationApi::class)
-suspend fun main() {
+fun main() {
     val activeTableStateRepository = InMemoryActiveTableStateRepository()
     val handHistoryRepository = InMemoryHandHistoryRepository()
     val cashGameRepository = InMemoryCashGameRepository()
@@ -54,6 +56,10 @@ suspend fun main() {
 
     embeddedServer(Netty, port = 3001) {
         install(WebSockets)
+        install(ContentNegotiation) {
+            json()
+        }
+
         routing {
             authEndpoints(authRepository)
             gameEndpoints(gameService, authRepository)

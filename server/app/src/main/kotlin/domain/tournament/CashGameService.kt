@@ -22,9 +22,7 @@ class CashGameService(
             players = game.players + CashGameRepository.Player(playerId, name, defaultStack)
         )
 
-        if (updatedGame.players.size >= 3) {
-            tableService.saveTable(updatedGame.tableId, createTable(updatedGame.players), mapOf())
-        }
+        tableService.saveTable(updatedGame.tableId, createTable(updatedGame.players), mapOf())
 
         repository.save(game.id, updatedGame)
         return updatedGame.tableId
