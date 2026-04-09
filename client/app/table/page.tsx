@@ -15,6 +15,22 @@ interface Player {
   cards?: Card[];
 }
 
+type ActionType = 'fold' | 'check' | 'bet' | 'raise' | 'call' | 'smallBlind' | 'bigBlind';
+
+interface ActionButton {
+  type: ActionType;
+  label: string;
+  amount?: number;
+}
+
+const PLAYER_ACTIONS: ActionButton[] = [
+  { type: 'fold', label: 'Fold' },
+  { type: 'check', label: 'Check' },
+  { type: 'call', label: 'Call', amount: 50 },
+  { type: 'bet', label: 'Bet', amount: 100 },
+  { type: 'raise', label: 'Raise', amount: 200 },
+];
+
 const TABLE_PLAYERS: Player[] = [
   { id: 1, name: 'Player 1', stack: 1000, seat: 0 },
   { id: 2, name: 'Player 2', stack: 1500, seat: 1 },
@@ -96,7 +112,7 @@ function PlayerSeat({ player, isDealer, localPlayerSeat }: { player: Player; isD
 
 export default function Table() {
   return (
-    <div className="min-h-screen bg-[#0f3020] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0f3020] flex flex-col items-center justify-center p-4">
       <div className="relative w-full max-w-3xl aspect-[4/3]">
         <div className="absolute inset-0 bg-[#35654d] rounded-full border-8 border-[#1a5c32] shadow-2xl">
           <div className="absolute inset-4 bg-[#2d5a3d] rounded-full border-4 border-[#1a472a]">
@@ -121,6 +137,17 @@ export default function Table() {
             ))}
           </div>
         </div>
+      </div>
+      <div className="flex gap-2 mt-4">
+        {PLAYER_ACTIONS.map((action) => (
+          <button
+            key={action.type}
+            className="bg-[#1e40af] hover:bg-[#3b82f6] text-white font-bold py-3 px-4 rounded-lg border-2 border-[#1e3a8a] shadow-lg transition-colors w-24"
+          >
+            <div className="text-sm">{action.label}</div>
+            {action.amount && <div className="text-xs text-yellow-300">${action.amount}</div>}
+          </button>
+        ))}
       </div>
     </div>
   );
