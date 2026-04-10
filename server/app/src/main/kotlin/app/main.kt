@@ -13,11 +13,8 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
-import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
-import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
-import io.netty.handler.codec.http.cors.CorsConfig
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
@@ -25,7 +22,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -33,9 +29,9 @@ import org.slf4j.LoggerFactory
 import server.authEndpoints
 import server.gameEndpoints
 import server.models.HandEvent
-import server.process
 import server.tableEndpoints
-import server.toDomain
+
+val logger = LoggerFactory.getLogger("Main")
 
 @OptIn(ExperimentalSerializationApi::class)
 fun main() {

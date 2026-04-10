@@ -17,7 +17,7 @@ const val DEFAULT_ANTE_AMOUNT = 20.0
 const val DEFAULT_TIMEOUT_IN_SECONDS = 10L
 
 fun createTable(
-    players: List<CashGameRepository.Player>,
+    players: List<CashGameRepository.Player> = listOf(),
     smallBlindAmount: Double = DEFAULT_SMALL_BLIND_AMOUNT,
     bigBlindAmount: Double = DEFAULT_BIG_BLIND_AMOUNT,
     anteAmount: Double = DEFAULT_ANTE_AMOUNT,
@@ -51,6 +51,16 @@ fun createTable(
 
     return table
 }
+
+fun Table.addPlayer(player: CashGameRepository.Player) = copy(
+    players = players + Table.Player(
+        id = player.id,
+        name = player.name,
+        seat = players.size,
+        stack = player.stack,
+        isSittingOut = false,
+    ),
+)
 
 fun Table.dealInitialCards(): Table {
     return copy(

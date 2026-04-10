@@ -1,13 +1,13 @@
 package server
 
 import app.WebSocketId
+import app.logger
 import domain.table.TableService
 import domain.tournament.CashGameService
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
-import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSocketServerSession
 import io.ktor.server.websocket.sendSerialized
 import io.ktor.server.websocket.webSocket
@@ -18,12 +18,10 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
 import server.models.HandEvent
 import server.models.PlayerAction
 
@@ -51,8 +49,6 @@ fun Route.gameEndpoints(gameService: CashGameService, authRepository: AuthReposi
         }
     }
 }
-
-val logger = LoggerFactory.getLogger("Main")
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Route.tableEndpoints(

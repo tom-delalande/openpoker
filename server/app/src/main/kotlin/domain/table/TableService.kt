@@ -3,6 +3,7 @@
 package domain.table
 
 import app.WebSocketId
+import app.logger
 import domain.model.Table
 import domain.tournament.CashGameRepository
 import io.ktor.server.websocket.WebSocketServerSession
@@ -133,6 +134,13 @@ class TableService(
         } else {
             activeRepository.set(id, table, playerIdToEventVersion)
         }
+    }
+
+    fun createOrJoin(id: UUID, player: CashGameRepository.Player) {
+        val activeTable = activeRepository.get(id)
+        val table = activeTable?.table ?: createTable()
+        val updated = table.addPlayer(player)
+        activeRepository.set(id, updated, activeTable?.playerIdToEventVersion ?: emptyMap())
     }
 
     @OptIn(ExperimentalSerializationApi::class)

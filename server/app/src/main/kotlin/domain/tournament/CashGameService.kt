@@ -22,7 +22,8 @@ class CashGameService(
             players = game.players + CashGameRepository.Player(playerId, name, defaultStack)
         )
 
-        tableService.saveTable(updatedGame.tableId, createTable(updatedGame.players), mapOf())
+
+        tableService.createOrJoin(updatedGame.tableId, CashGameRepository.Player(playerId, name, defaultStack))
 
         repository.save(game.id, updatedGame)
         return updatedGame.tableId

@@ -1,5 +1,6 @@
 package data.inmemory
 
+import app.logger
 import domain.model.Table
 import domain.table.ActiveTable
 import domain.table.ActiveTableStateRepository
@@ -17,12 +18,18 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
         return tables[id]
     }
 
+    var x = false
+
     override fun set(
         id: UUID,
         table: Table,
         sockets: Map<Int, Int>,
     ) {
+        if (sockets.isNotEmpty()) x = true
+
+        if (x && sockets.isEmpty()) {
+            throw IllegalStateException()
+        }
         tables[id] = ActiveTable(id, table, sockets)
     }
-
 }
