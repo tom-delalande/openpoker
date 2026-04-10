@@ -1,6 +1,5 @@
 package server
 
-import app.WebSocketId
 import app.logger
 import domain.table.TableService
 import domain.tournament.CashGameService
@@ -52,21 +51,23 @@ fun Route.gameEndpoints(gameService: CashGameService, authRepository: AuthReposi
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Route.tableEndpoints(
-    websockets: ConcurrentHashMap<WebSocketId, MutableSharedFlow<HandEvent>>,
+    websockets: ConcurrentHashMap<UUID, MutableSharedFlow<HandEvent>>,
     authRepository: AuthRepository,
     tableService: TableService,
 ) {
     route("/table") {
         webSocket("/ws/table/{tableId}/token/{token}") {
+            val sessionId = UUID.randomUUID()
             val tableId = call.parameters["tableId"]?.let { UUID.fromString(it) } ?: throw IllegalStateException()
             val token = call.parameters["token"] ?: throw IllegalStateException()
             val messageResponseFlow = MutableSharedFlow<HandEvent>()
             val sharedFlow = messageResponseFlow.asSharedFlow()
 
             val player = authRepository.getPlayer(token) ?: return@webSocket
-            websockets[WebSocketId(player.playerId, tableId)] = messageResponseFlow
+            websockets[sessionId] = messageResponseFlow
             logger.info("Player connected to websocket. playerId[${player.playerId}] table[$tableId]")
-            tableService.addWebSocketConnection(player.playerId, tableId)
+            // TODO: [low] memory leak (this is never cleaned up)
+            tableService.addWebSocketConnection(player.playerId, tableId, sessionId)
 
             val job = launch {
                 sharedFlow.collect { message ->

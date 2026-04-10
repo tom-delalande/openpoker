@@ -4,6 +4,7 @@ import data.inmemory.InMemoryActiveTableStateRepository
 import data.inmemory.InMemoryAuthRepository
 import data.inmemory.InMemoryCashGameRepository
 import data.inmemory.InMemoryHandHistoryRepository
+import domain.table.Socket
 import domain.table.TableService
 import domain.tournament.CashGameService
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
@@ -40,7 +41,7 @@ fun main() {
     val cashGameRepository = InMemoryCashGameRepository()
     val authRepository = InMemoryAuthRepository()
 
-    val websockets = ConcurrentHashMap<WebSocketId, MutableSharedFlow<HandEvent>>()
+    val websockets = ConcurrentHashMap<UUID, MutableSharedFlow<HandEvent>>()
     val tableService = TableService(activeTableStateRepository, handHistoryRepository, websockets)
     val gameService = CashGameService(cashGameRepository, tableService)
 
@@ -74,8 +75,3 @@ fun main() {
         }
     }.start(wait = true)
 }
-
-data class WebSocketId(
-    val playerId: Int,
-    val tableId: UUID,
-)

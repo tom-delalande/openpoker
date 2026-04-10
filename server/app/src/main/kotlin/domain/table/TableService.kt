@@ -2,20 +2,13 @@
 
 package domain.table
 
-import app.WebSocketId
-import app.logger
 import domain.model.Table
 import domain.tournament.CashGameRepository
-import io.ktor.server.websocket.WebSocketServerSession
-import io.ktor.server.websocket.sendSerialized
 import java.time.Instant
 import java.util.UUID
 import kotlin.time.toKotlinInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.serialization.ExperimentalSerializationApi
-import server.models.ActionOptions
 import server.models.ActionOptionsBet
 import server.models.ActionOptionsCall
 import server.models.ActionOptionsCheck
@@ -84,32 +77,32 @@ import server.models.RoundStartedType
 class TableService(
     val activeRepository: ActiveTableStateRepository,
     val historicRepository: HandHistoryRepository,
-    val sessions: Map<WebSocketId, MutableSharedFlow<HandEvent>>,
+    val sessions: Map<UUID, MutableSharedFlow<HandEvent>>,
 ) {
-
     suspend fun process(now: Instant = Instant.now()) {
         val tables = activeRepository.getActiveTables()
-        tables.forEach { (tableId, table, playerIdToEventVersion) ->
+        tables.forEach { (tableId, table, sockets) ->
             val updated = table.processTable(now)
             val events = updated.toEvents()
-            val newPlayerIdToEventVersion = playerIdToEventVersion.toMutableMap()
-            for (socket in playerIdToEventVersion) {
-                val (playerId, bookmark) = socket
-                val session = sessions[WebSocketId(playerId, tableId)] ?: throw IllegalStateException()
-                val playerEvents = events.prepareForPlayer(playerId)
-                for (event in events.drop(bookmark)) {
+            val updatedSockets = mutableListOf<Socket>()
+            for (playerSocket in sockets) {
+                val playerEvents = events
+                    .drop(playerSocket.version)
+                    .prepareForPlayer(playerSocket.playerId)
+                val session = sessions[playerSocket.sessionId] ?: return@forEach
+                for (event in playerEvents) {
                     session.emit(event)
                 }
-                newPlayerIdToEventVersion[playerId] = playerEvents.size
+                updatedSockets.add(playerSocket.copy(version = events.size))
             }
 
-            saveTable(tableId, updated, newPlayerIdToEventVersion)
+            saveTable(tableId, updated, updatedSockets.toList())
         }
     }
 
-    fun addWebSocketConnection(playerId: Int, tableId: UUID) {
+    fun addWebSocketConnection(playerId: Int, tableId: UUID, sessionId: UUID) {
         val table = activeRepository.get(tableId) ?: throw IllegalStateException()
-        saveTable(tableId, table.table, table.playerIdToEventVersion + (playerId to 0))
+        saveTable(tableId, table.table, table.playerSockets + Socket(playerId, sessionId, 0))
     }
 
 
@@ -123,16 +116,16 @@ class TableService(
         val updated = actions.fold(activeTable.table) { table, action ->
             table.processPlayerAction(playerId, action, now)
         }
-        saveTable(tableId, updated, activeTable.playerIdToEventVersion)
+        saveTable(tableId, updated, activeTable.playerSockets)
     }
 
-    fun saveTable(id: UUID, table: Table, playerIdToEventVersion: Map<Int, Int>) {
+    fun saveTable(id: UUID, table: Table, playerSockets: List<Socket>) {
         if (table.isFinished) {
             historicRepository.saveHand(id, table)
             val nextHand = table.startNextHand()
-            activeRepository.set(id, nextHand, playerIdToEventVersion)
+            activeRepository.set(id, nextHand, playerSockets)
         } else {
-            activeRepository.set(id, table, playerIdToEventVersion)
+            activeRepository.set(id, table, playerSockets)
         }
     }
 
@@ -140,7 +133,7 @@ class TableService(
         val activeTable = activeRepository.get(id)
         val table = activeTable?.table ?: createTable()
         val updated = table.addPlayer(player)
-        activeRepository.set(id, updated, activeTable?.playerIdToEventVersion ?: emptyMap())
+        activeRepository.set(id, updated, activeTable?.playerSockets ?: emptyList())
     }
 
     @OptIn(ExperimentalSerializationApi::class)

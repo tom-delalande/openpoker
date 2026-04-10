@@ -1,9 +1,9 @@
 package data.inmemory
 
-import app.logger
 import domain.model.Table
 import domain.table.ActiveTable
 import domain.table.ActiveTableStateRepository
+import domain.table.Socket
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -23,13 +23,8 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
     override fun set(
         id: UUID,
         table: Table,
-        sockets: Map<Int, Int>,
+        playerSockets: List<Socket>,
     ) {
-        if (sockets.isNotEmpty()) x = true
-
-        if (x && sockets.isEmpty()) {
-            throw IllegalStateException()
-        }
-        tables[id] = ActiveTable(id, table, sockets)
+        tables[id] = ActiveTable(id, table, playerSockets)
     }
 }
