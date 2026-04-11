@@ -2,7 +2,6 @@ package domain.table
 
 import domain.model.Table
 import domain.model.Table.Round
-import domain.model.Tournament
 import java.time.Instant
 import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption as ActionOption
 import domain.model.Table.Round.Action.PlayerAction.*
@@ -89,9 +88,9 @@ private fun Table.dealCards(): Table {
     }
 }
 
-fun Table.processTable(now: Instant): Table {
+fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLong() }): Table {
     if (rounds.isEmpty() && players.size >= 3) {
-        return startNextHand()
+        return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator())
     }
 
     return when (val latestAction = currentRound?.actions?.lastOrNull()) {
@@ -114,10 +113,11 @@ fun Table.processTable(now: Instant): Table {
 fun Table.startNextHand(
     smallBlindAmount: Double = this.smallBlindAmount,
     bigBlindAmount: Double = this.bigBlindAmount,
+    dealerSeat: Int = this.dealerSeat.nextSeat(),
     seed: Long = Random.nextLong(),
 ): Table {
     return copy(
-        dealerSeat = dealerSeat + 1,
+        dealerSeat = dealerSeat,
         players = players.map { player ->
             player.copy(
                 isSittingOut = false,
@@ -140,11 +140,20 @@ fun Table.startNextHand(
     )
 }
 
-fun Table.processPostAction(now: Instant): Table = attemptFinishRound().requestNextAction(now)
+fun Table.processPostAction(now: Instant): Table = attemptFinishRound()
+    .performDealerActions()
+    .requestNextAction(now)
+
+fun Table.performDealerActions(): Table {
+    if (playerRoundActions.lastOrNull() is PostBigBlind) {
+        return dealCards()
+    }
+    return this
+}
 
 // TODO: [low] Maybe this action type should be it's own interface
 fun Table.processPlayerAction(playerId: Int, action: Round.Action.PlayerAction, now: Instant): Table {
-    val lastAction = playerActions.last()
+    val lastAction = playerRoundActions.last()
     if (lastAction !is RequestAction) {
         throw IllegalStateException("Unexpected action. playerId[$playerId] action[$action] lastEvent[$lastAction]")
     }
@@ -152,7 +161,7 @@ fun Table.processPlayerAction(playerId: Int, action: Round.Action.PlayerAction, 
         throw IllegalStateException("Unexpected action for player. playerId[$playerId] expectedPlayerId[${lastAction.playerId}]")
     }
 
-    // TODO: [medium] Check action is in action options
+    // TODO: [high] Check action is in action options
 
     return appendAction(action)
         .processPostAction(now)
@@ -171,7 +180,7 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
 }
 
 private fun Table.attemptFinishRound(): Table {
-    if (rounds.isEmpty() || playerActions.isEmpty() || players.isEmpty()) {
+    if (rounds.isEmpty() || playerRoundActions.isEmpty() || players.isEmpty()) {
         return copy()
     }
 
@@ -179,11 +188,18 @@ private fun Table.attemptFinishRound(): Table {
         return finishHand()
     }
 
-    val lastAction = playerActions.filterNot { it is RequestAction }.last()
+    val lastAction = playerRoundActions.filterNot { it is RequestAction }.last()
     val lastActionPlayer = players.find { it.id == lastAction.playerId }
-    val lastRaiseAction = playerActions.dropLast(1).findLast { it is Raise || it is PostBigBlind }
+    val nextPlayerToAct = livePlayers.find { it.seat == lastActionPlayer?.seat?.nextSeat() }
+    val lastRaiseActionPlayerId =
+        if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it !is PostSmallBlind && it !is PostBigBlind && it !is RequestAction }) {
+            playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
+                ?: players.find { it.seat == bigBlindPlayer.seat.nextSeat() }?.id
+        } else {
+            playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
+        }
 
-    if (lastRaiseAction?.playerId == lastActionPlayer?.id) {
+    if (lastRaiseActionPlayerId == nextPlayerToAct?.playerId) {
         if (currentRound?.street == Round.Street.River || livePlayers.all { it.isAllIn }) {
             // TODO: [medium] Add showdown events if necessary
             return finishHand()
@@ -252,7 +268,9 @@ private fun Table.calculateWinners(): List<Int> {
 
 private fun Table.requestNextAction(now: Instant): Table {
     if (rounds.isEmpty() || players.isEmpty()) return copy()
-    val lastAction = currentRound?.actions?.filterIsInstance<Round.Action.PlayerAction>()?.lastOrNull()
+    val lastAction = currentRound?.actions?.filterIsInstance<Round.Action.PlayerAction>()
+        ?.lastOrNull { it !is DealCards }
+    // TODO: [high] this needs to be only counting live players
     val lastActionPlayer = players.find { it.id == lastAction?.playerId } ?: players[dealerSeat]
 
     val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
@@ -261,7 +279,7 @@ private fun Table.requestNextAction(now: Instant): Table {
     val playerStack = livePlayersById[nextPlayer.id]!!.currentStack
 
     val actionOptions = buildList {
-        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id && playerActions.filterIsInstance<PostSmallBlind>()
+        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id && playerRoundActions.filterIsInstance<PostSmallBlind>()
                 .none()
         ) {
             add(ActionOption.Fold)
@@ -269,7 +287,7 @@ private fun Table.requestNextAction(now: Instant): Table {
             return@buildList
         }
 
-        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == bigBlindPlayer.id && playerActions.filterIsInstance<PostBigBlind>()
+        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == bigBlindPlayer.id && playerRoundActions.filterIsInstance<PostBigBlind>()
                 .none()
         ) {
             add(ActionOption.Fold)
@@ -297,7 +315,7 @@ private fun Table.requestNextAction(now: Instant): Table {
             add(
                 // TODO: [medium] raises might still be wrong
                 ActionOption.Raise(
-                    minAmount = currentRaise + (currentRaise - previousRaise),
+                    minAmount = (currentRaise - previousRaise) + bigBlindAmount,
                     maxAmount = max(playerRaise - currentRaise, playerStack)
                 )
             )

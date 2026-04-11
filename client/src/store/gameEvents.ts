@@ -15,6 +15,7 @@ export function handleGameEvent(event: HandEvent): void {
         name: player.playerName,
         stack: player.stack,
         seat: player.seat,
+        currentBet: 0,
       });
       break;
     }
@@ -33,7 +34,7 @@ export function handleGameEvent(event: HandEvent): void {
       store.setCurrentPlayerId(null);
       store.setMyCards([]);
       store.players.forEach((p) => {
-        store.updatePlayer(p.id, { hasActed: false, hasFolded: false, cards: undefined });
+        store.updatePlayer(p.id, { hasActed: false, hasFolded: false, cards: undefined, currentBet: 0 });
       });
       break;
     }
@@ -43,7 +44,7 @@ export function handleGameEvent(event: HandEvent): void {
       store.setActionOptions(null);
       store.setCurrentPlayerId(null);
       store.players.forEach((p) => {
-        store.updatePlayer(p.id, { hasActed: false });
+        store.updatePlayer(p.id, { hasActed: false, currentBet: 0 });
       });
       break;
     }
@@ -75,7 +76,7 @@ export function handleGameEvent(event: HandEvent): void {
       const { playerId: sbPlayerId, amount } = event.value;
       const player = store.players.find((p) => p.id === sbPlayerId);
       if (player) {
-        store.updatePlayer(sbPlayerId, { stack: player.stack - amount, hasActed: true });
+        store.updatePlayer(sbPlayerId, { stack: player.stack - amount, hasActed: true, currentBet: player.currentBet + amount });
       }
       store.setCurrentPot(store.currentPot + amount);
       break;
@@ -85,7 +86,7 @@ export function handleGameEvent(event: HandEvent): void {
       const { playerId: bbPlayerId, amount } = event.value;
       const player = store.players.find((p) => p.id === bbPlayerId);
       if (player) {
-        store.updatePlayer(bbPlayerId, { stack: player.stack - amount, hasActed: true });
+        store.updatePlayer(bbPlayerId, { stack: player.stack - amount, hasActed: true, currentBet: player.currentBet + amount });
       }
       store.setCurrentPot(store.currentPot + amount);
       break;
@@ -95,14 +96,50 @@ export function handleGameEvent(event: HandEvent): void {
       const { playerId: antePlayerId, amount } = event.value;
       const player = store.players.find((p) => p.id === antePlayerId);
       if (player) {
-        store.updatePlayer(antePlayerId, { stack: player.stack - amount });
+        store.updatePlayer(antePlayerId, { stack: player.stack - amount, currentBet: player.currentBet + amount });
       }
       store.setCurrentPot(store.currentPot + amount);
       break;
     }
 
-    case 'PlayerFolded': {
-      store.updatePlayer(event.value.playerId, { hasFolded: true, hasActed: true });
+case 'PlayerFolded': {
+      const { playerId } = event.value;
+      store.updatePlayer(playerId, { hasFolded: true });
+      break;
+    }
+
+    case 'PlayerChecked': {
+      store.setCurrentPot(store.currentPot);
+      break;
+    }
+
+    case 'PlayerBet': {
+      const { playerId: betPlayerId, amount } = event.value;
+      const player = store.players.find((p) => p.id === betPlayerId);
+      if (player) {
+        store.updatePlayer(betPlayerId, { stack: player.stack - amount, hasActed: true, currentBet: player.currentBet + amount });
+      }
+      store.setCurrentPot(store.currentPot + amount);
+      break;
+    }
+
+    case 'PlayerRaised': {
+      const { playerId: raisePlayerId, amount } = event.value;
+      const player = store.players.find((p) => p.id === raisePlayerId);
+      if (player) {
+        store.updatePlayer(raisePlayerId, { stack: player.stack - amount, hasActed: true, currentBet: player.currentBet + amount });
+      }
+      store.setCurrentPot(store.currentPot + amount);
+      break;
+    }
+
+    case 'PlayerCalled': {
+      const { playerId: callPlayerId, amount } = event.value;
+      const player = store.players.find((p) => p.id === callPlayerId);
+      if (player) {
+        store.updatePlayer(callPlayerId, { stack: player.stack - amount, hasActed: true, currentBet: player.currentBet + amount });
+      }
+      store.setCurrentPot(store.currentPot + amount);
       break;
     }
 

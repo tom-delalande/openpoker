@@ -81,7 +81,7 @@ function PlayerSeat({
   isCurrentPlayer,
   localPlayerSeat,
 }: { 
-  player: { id: number; name: string; stack: number; seat: number; cards?: string[]; hasFolded?: boolean };
+  player: { id: number; name: string; stack: number; seat: number; cards?: string[]; hasFolded?: boolean; currentBet: number };
   isDealer: boolean;
   isCurrentPlayer: boolean;
   localPlayerSeat: number;
@@ -111,6 +111,9 @@ function PlayerSeat({
       </div>
       <div className={`bg-[#0d3d22] text-white px-3 py-1 rounded text-sm ${isCurrentPlayer ? 'ring-2 ring-yellow-400' : ''}`}>
         <div className="font-bold">{player.name}</div>
+        {player.currentBet > 0 && (
+          <div className="text-blue-300 text-xs">{formatAmount(player.currentBet)}</div>
+        )}
         <div className="text-yellow-400">{formatAmount(player.stack)}</div>
         {player.hasFolded && <div className="text-red-400 text-xs">Folded</div>}
       </div>
@@ -286,8 +289,8 @@ function TableContent() {
                   ))
                 )}
               </div>
-              <div className="bg-[#0d3d22] text-white px-6 py-2 rounded-full text-xl font-bold border-4 border-[#1a3622]">
-                POT: {formatAmount(currentPot)}
+              <div className="bg-[#0d3d22] text-gray-400 px-4 py-1 rounded-full text-sm border-2 border-[#1a3622]">
+                {currentPot > 0 ? `POT: ${formatAmount(currentPot)}` : ''}
               </div>
             </div>
 

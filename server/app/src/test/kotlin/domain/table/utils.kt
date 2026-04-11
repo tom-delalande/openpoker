@@ -26,7 +26,12 @@ fun givenWellKnownTournamentTable(work: TableConfig.() -> Unit): Table {
     val config = TableConfig()
     work(config)
     val players = config.players.map { domain.tournament.CashGameRepository.Player(it.id, it.name, it.startingStack) }
-    return createTable(players = players, seed = config.seed)
+    return createTable(
+        players = players,
+        seed = config.seed,
+        smallBlindAmount = config.smallBlind,
+        bigBlindAmount = config.bigBlind
+    )
         .copy(
             dealerSeat = config.dealerSeat,
             rounds = config.rounds,
@@ -38,6 +43,8 @@ data class TableConfig(
     var dealerSeat: Int = 0,
     var seed: Long = 1,
     var rounds: MutableList<Table.Round> = mutableListOf(),
+    var smallBlind: Double = DEFAULT_SMALL_BLIND_AMOUNT,
+    var bigBlind: Double = DEFAULT_BIG_BLIND_AMOUNT,
 )
 
 fun TableConfig.withSeed(seed: Long) {
@@ -60,6 +67,11 @@ fun TableConfig.withDefaultPlayers(number: Int, startingStack: Double = 1000.0) 
             startingStack = startingStack,
         )
     }
+}
+
+fun TableConfig.withBlinds(smallBlind: Double, bigBlind: Double) {
+    this.smallBlind = smallBlind
+    this.bigBlind = bigBlind
 }
 
 fun TableConfig.withRound(street: Table.Round.Street, work: RoundConfig.() -> Unit) {

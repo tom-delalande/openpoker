@@ -1,6 +1,5 @@
 package domain.model
 
-import domain.table.DEFAULT_BIG_BLIND_AMOUNT
 import java.time.Instant
 
 data class Table(
@@ -20,8 +19,8 @@ data class Table(
     val currentRound: Round?
         get() = rounds.lastOrNull()
 
-    val playerActions: List<Round.Action.PlayerAction>
-        get() = rounds.flatMap { it.actions }.filterIsInstance<Round.Action.PlayerAction>()
+    val playerRoundActions: List<Round.Action.PlayerAction>
+        get() = currentRound?.actions?.filterIsInstance<Round.Action.PlayerAction>() ?: emptyList()
 
     val currentRaise: Double
         get() = livePlayers.maxOfOrNull { it.contributionThisStreet } ?: bigBlindAmount
@@ -39,10 +38,13 @@ data class Table(
     val currentNumberOfCards: Int
         get() = rounds.sumOf {
             it.actions.filterIsInstance<Round.Action.DealCommunityCards>().sumOf { it.cards.size }
-        } +
-                playerActions.filterIsInstance<Round.Action.PlayerAction.DealCards>().sumOf { it.cards.size }
+        } + rounds.flatMap { it.actions }.filterIsInstance<Round.Action.PlayerAction.DealCards>()
+            .sumOf { it.cards.size }
 
     fun Int.nextSeat() = (this + 1) % players.size
+
+    // TODO: [high] make this actually use active seat
+    fun Int.nextActiveSeat() = (this + 1) % players.size
 
     enum class GameType {
         HoldEm,
@@ -80,6 +82,7 @@ data class Table(
 
         sealed interface Action {
             sealed interface PlayerAction : Action {
+                // TODO: [medium] this should really use seatId
                 val playerId: Int
 
                 data class RequestAction(

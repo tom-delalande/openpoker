@@ -8,6 +8,7 @@ export interface Player {
   cards?: string[];
   hasActed?: boolean;
   hasFolded?: boolean;
+  currentBet: number;
 }
 
 export interface GameState {
