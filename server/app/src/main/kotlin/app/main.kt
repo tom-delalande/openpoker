@@ -9,6 +9,7 @@ import domain.table.TableService
 import domain.tournament.CashGameService
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import server.AuthRepository
 import server.authEndpoints
 import server.gameEndpoints
 import server.models.HandEvent
@@ -58,20 +60,33 @@ fun main() {
     }
 
     embeddedServer(Netty, port = 3001) {
-        install(WebSockets) {
-            contentConverter = KotlinxWebsocketSerializationConverter(Json)
-        }
-        install(ContentNegotiation) {
-            json()
-        }
-        install(CORS) {
-            anyHost()
-        }
 
-        routing {
-            authEndpoints(authRepository)
-            gameEndpoints(gameService, authRepository)
-            tableEndpoints(websockets, authRepository, tableService)
-        }
+        module(authRepository, gameService, tableService, websockets)
+
+
     }.start(wait = true)
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+fun Application.module(
+    authRepository: AuthRepository,
+    gameService: CashGameService,
+    tableService: TableService,
+    websockets: ConcurrentHashMap<UUID, MutableSharedFlow<HandEvent>>,
+) {
+    install(WebSockets) {
+        contentConverter = KotlinxWebsocketSerializationConverter(Json)
+    }
+    install(ContentNegotiation) {
+        json()
+    }
+    install(CORS) {
+        anyHost()
+    }
+
+    routing {
+        authEndpoints(authRepository)
+        gameEndpoints(gameService, authRepository)
+        tableEndpoints(websockets, authRepository, tableService)
+    }
 }

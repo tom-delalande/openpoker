@@ -26,11 +26,11 @@ import server.models.PlayerAction
 
 private val json = Json
 
-fun Route.authEndpoints(authRepository: AuthRepository) {
+fun Route.authEndpoints(authRepository: AuthRepository, idGenerator: () -> Int = { Random.nextInt()} ) {
     route("/auth") {
         post("/login/{name}") {
             val name = call.parameters["name"] ?: throw IllegalStateException()
-            val playerId = Random.nextInt()
+            val playerId = idGenerator()
             val token = UUID.randomUUID().toString()
             authRepository.saveToken(token, playerId, name)
             call.respond(token)
@@ -65,7 +65,6 @@ fun Route.tableEndpoints(
 
             val player = authRepository.getPlayer(token) ?: return@webSocket
             websockets[sessionId] = messageResponseFlow
-            logger.info("Player connected to websocket. playerId[${player.playerId}] table[$tableId]")
             // TODO: [low] memory leak (this is never cleaned up)
             tableService.addWebSocketConnection(player.playerId, tableId, sessionId)
 

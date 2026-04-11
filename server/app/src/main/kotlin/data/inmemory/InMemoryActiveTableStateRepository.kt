@@ -1,5 +1,6 @@
 package data.inmemory
 
+import app.logger
 import domain.model.Table
 import domain.table.ActiveTable
 import domain.table.ActiveTableStateRepository
@@ -17,8 +18,6 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
     override fun get(id: UUID): ActiveTable? {
         return tables[id]
     }
-
-    var x = false
 
     override fun set(
         id: UUID,

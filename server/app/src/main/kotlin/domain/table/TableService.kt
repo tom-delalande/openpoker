@@ -2,12 +2,15 @@
 
 package domain.table
 
+import app.logger
 import domain.model.Table
 import domain.tournament.CashGameRepository
 import java.time.Instant
 import java.util.UUID
 import kotlin.time.toKotlinInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.ExperimentalSerializationApi
 import server.models.ActionOptionsBet
 import server.models.ActionOptionsCall
@@ -89,6 +92,7 @@ class TableService(
                 val playerEvents = events
                     .drop(playerSocket.version)
                     .prepareForPlayer(playerSocket.playerId)
+
                 val session = sessions[playerSocket.sessionId] ?: return@forEach
                 for (event in playerEvents) {
                     session.emit(event)
@@ -100,9 +104,13 @@ class TableService(
         }
     }
 
-    fun addWebSocketConnection(playerId: Int, tableId: UUID, sessionId: UUID) {
-        val table = activeRepository.get(tableId) ?: throw IllegalStateException()
-        saveTable(tableId, table.table, table.playerSockets + Socket(playerId, sessionId, 0))
+    val mutex = Mutex()
+    suspend fun addWebSocketConnection(playerId: Int, tableId: UUID, sessionId: UUID) {
+        // TODO: [low] there has got a better way to prevent websockets from over-writting each other here -> Test case TODO [1]
+        mutex.withLock {
+            val table = activeRepository.get(tableId) ?: throw IllegalStateException()
+            saveTable(tableId, table.table, table.playerSockets + Socket(playerId, sessionId, 0))
+        }
     }
 
 

@@ -2,7 +2,8 @@
 
 package domain.table
 
-import app.WebSocketId
+import app.logger
+import app.module
 import data.inmemory.InMemoryActiveTableStateRepository
 import data.inmemory.InMemoryAuthRepository
 import data.inmemory.InMemoryCashGameRepository
@@ -22,15 +23,20 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.routing.routing
+import io.ktor.server.testing.testApplication
 import io.ktor.server.websocket.WebSockets
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -49,7 +55,7 @@ import server.tableEndpoints
 class PlayerSocket(
     val playerId: Int,
     val token: String,
-    var session: io.ktor.client.plugins.websocket.DefaultClientWebSocketSession? = null
+    var session: io.ktor.client.plugins.websocket.DefaultClientWebSocketSession? = null,
 ) {
     suspend fun send(action: PlayerAction) {
         val jsonString = Json.encodeToString(PlayerAction.serializer(), action)
@@ -79,10 +85,10 @@ class ServerIntegrationTest {
     private lateinit var handHistoryRepository: InMemoryHandHistoryRepository
     private lateinit var cashGameRepository: InMemoryCashGameRepository
     private lateinit var authRepository: InMemoryAuthRepository
-    private lateinit var websockets: ConcurrentHashMap<WebSocketId, kotlinx.coroutines.flow.MutableSharedFlow<HandEvent>>
+    private lateinit var websockets: ConcurrentHashMap<UUID, kotlinx.coroutines.flow.MutableSharedFlow<HandEvent>>
     private lateinit var tableService: TableService
     private lateinit var gameService: CashGameService
-    
+
     private var server: io.ktor.server.engine.EmbeddedServer<*, *>? = null
     private var serverPort: Int = 3003
     private var processingJob: Job? = null
@@ -108,8 +114,9 @@ class ServerIntegrationTest {
                 anyHost()
             }
 
+            var playerId = 0
             routing {
-                authEndpoints(authRepository)
+                authEndpoints(authRepository, { playerId++ })
                 gameEndpoints(gameService, authRepository)
                 tableEndpoints(websockets, authRepository, tableService)
             }
@@ -118,14 +125,10 @@ class ServerIntegrationTest {
         server?.start()
 
         processingJob = CoroutineScope(Dispatchers.Default).launch {
-            while (true) {
-                try {
-                    tableService.process()
-                    delay(500)
-                } catch (e: Exception) {
-                    println("Error: $e")
-                }
-            }
+//            while (true) {
+//                tableService.process()
+//                delay(500)
+//            }
         }
     }
 
@@ -146,7 +149,7 @@ class ServerIntegrationTest {
             println("Token: $token")
 
             val tableId: String = client.post("http://localhost:$serverPort/game/join") {
-                url { 
+                url {
                     parameters.append("token", token)
                 }
             }.body()
@@ -175,8 +178,9 @@ class ServerIntegrationTest {
         }
     }
 
+    // TODO [1]
     @Test
-    fun `three players can join and interact via websockets`() = runTest {
+    fun `given multiple websockets, when joining in close succession, then all connections are established and maintained`() = runBlocking {
         val client = HttpClient(CIO) {
             install(ClientWebSockets)
         }
@@ -187,18 +191,16 @@ class ServerIntegrationTest {
             val player3 = createAndLogin(client, "player3")
 
             val tableId = joinTable(client, player1.token)
-            joinTable(client, player2.token)
-            joinTable(client, player3.token)
+            assertEquals(tableId, joinTable(client, player2.token))
+            assertEquals(tableId, joinTable(client, player3.token))
 
             connectWebsocket(client, tableId, player1)
             connectWebsocket(client, tableId, player2)
             connectWebsocket(client, tableId, player3)
 
-            player1.send(PlayerActionSitDown(SitDown(SitDownType.SIT_DOWN)))
-            player2.send(PlayerActionSitDown(SitDown(SitDownType.SIT_DOWN)))
-            player3.send(PlayerActionSitDown(SitDown(SitDownType.SIT_DOWN)))
-
-            delay(100)
+            delay(1000)
+            tableService.process()
+            delay(1000)
 
             val player1Events = player1.receiveEvents()
             val player2Events = player2.receiveEvents()
@@ -207,6 +209,46 @@ class ServerIntegrationTest {
             println("Player 1 events: $player1Events")
             println("Player 2 events: $player2Events")
             println("Player 3 events: $player3Events")
+
+            assertEquals(5, player1Events.size)
+            assertEquals(5, player2Events.size)
+            assertEquals(5, player3Events.size)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun `play a game with 3 players`() = runBlocking {
+        val client = HttpClient(CIO) {
+            install(ClientWebSockets)
+        }
+
+        try {
+            val player1 = createAndLogin(client, "player1")
+            val player2 = createAndLogin(client, "player2")
+            val player3 = createAndLogin(client, "player3")
+
+            val tableId = joinTable(client, player1.token)
+            assertEquals(tableId, joinTable(client, player2.token))
+            assertEquals(tableId, joinTable(client, player3.token))
+
+            connectWebsocket(client, tableId, player1)
+            connectWebsocket(client, tableId, player2)
+            connectWebsocket(client, tableId, player3)
+
+            delay(1000)
+            tableService.process()
+            tableService.process()
+            delay(1000)
+
+            val player1Events = player1.receiveEvents()
+            val player2Events = player2.receiveEvents()
+            val player3Events = player3.receiveEvents()
+
+            assertEquals(5, player1Events.size)
+            assertEquals(5, player2Events.size)
+            assertEquals(5, player3Events.size)
         } finally {
             client.close()
         }
@@ -225,7 +267,8 @@ class ServerIntegrationTest {
     }
 
     private suspend fun connectWebsocket(client: HttpClient, tableId: String, playerSocket: PlayerSocket) {
-        val session = client.webSocketSession("ws://localhost:$serverPort/table/ws/table/$tableId/token/${playerSocket.token}")
+        val session =
+            client.webSocketSession("ws://localhost:$serverPort/table/ws/table/$tableId/token/${playerSocket.token}")
         playerSocket.session = session
     }
 }
