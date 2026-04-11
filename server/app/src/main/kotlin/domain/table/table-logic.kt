@@ -251,7 +251,7 @@ private fun Table.calculateWinners(): List<Int> {
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
-    if (rounds.isEmpty() || playerActions.isEmpty() || players.isEmpty()) return copy()
+    if (rounds.isEmpty() || players.isEmpty()) return copy()
     val lastAction = currentRound?.actions?.filterIsInstance<Round.Action.PlayerAction>()?.lastOrNull()
     val lastActionPlayer = players.find { it.id == lastAction?.playerId } ?: players[dealerSeat]
 
@@ -285,6 +285,10 @@ private fun Table.requestNextAction(now: Instant): Table {
             add(ActionOption.Check)
         }
 
+        if (currentRaise > 0.0 && playerRaise < currentRaise && playerStack > 0.0) {
+            add(ActionOption.Call(amount = min(playerStack, currentRaise - playerRaise)))
+        }
+
         if (currentRaise == 0.0 && playerStack > 0.0) {
             add(ActionOption.Bet(minAmount = bigBlindAmount, maxAmount = playerStack))
         }
@@ -299,9 +303,6 @@ private fun Table.requestNextAction(now: Instant): Table {
             )
         }
 
-        if (currentRaise > 0.0 && playerRaise < currentRaise && playerStack > 0.0) {
-            add(ActionOption.Call(amount = min(playerStack, currentRaise - playerRaise)))
-        }
     }
 
 

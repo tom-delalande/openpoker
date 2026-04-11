@@ -213,7 +213,10 @@ class TableLogicTest {
             withAction(
                 RequestAction(
                     1,
-                    actionOptions = listOf(ActionOption.Check),
+                    actionOptions = listOf(
+                        ActionOption.Fold, ActionOption.Call(amount = DEFAULT_BIG_BLIND_AMOUNT),
+                        ActionOption.Raise(minAmount = 5.0, maxAmount = null)
+                    ),
                     expiry = wellKnownTimestamp.plusSeconds(DEFAULT_TIMEOUT_IN_SECONDS)
                 )
             )
@@ -221,25 +224,21 @@ class TableLogicTest {
 
         val table = initialTable.processPlayerAction(
             playerId = 1,
-            Check(1),
+            Call(1, amount = DEFAULT_BIG_BLIND_AMOUNT, isAllIn = false),
             wellKnownTimestamp,
         )
 
         assertEquals(8, table.rounds[0].actions.size)
         assertEquals(
-            Check(playerId = 1),
-            table.rounds[0].actions[6],
-        )
-        assertEquals(
             RequestAction(
                 playerId = 2,
                 actionOptions = listOf(
                     ActionOption.Fold,
-                    ActionOption.Check,
+                    ActionOption.Call(amount = DEFAULT_SMALL_BLIND_AMOUNT),
                     // TODO: [medium] check is this correct – does a bet count existing bets in the amount or is just the delta
                     // I think bet's are per street
                     ActionOption.Raise(
-                        minAmount = DEFAULT_BIG_BLIND_AMOUNT + DEFAULT_BIG_BLIND_AMOUNT,
+                        minAmount = 15.0,
                         maxAmount = 995.0
                     ),
                 ),

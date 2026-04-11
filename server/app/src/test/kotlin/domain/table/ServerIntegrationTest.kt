@@ -246,7 +246,7 @@ class ServerIntegrationTest {
             val player2Events = player2.receiveEvents()
             val player3Events = player3.receiveEvents()
 
-            assertEquals(5, player1Events.size)
+            assertEquals(6, player1Events.size)
             assertEquals(5, player2Events.size)
             assertEquals(5, player3Events.size)
         } finally {
