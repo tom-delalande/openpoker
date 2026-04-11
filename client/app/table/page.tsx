@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useGameStore } from '../../src/store/gameStore';
 import { tableSocket } from '../../src/services/tableSocket';
 import { processEvents } from '../../src/store/gameEvents';
@@ -127,6 +127,7 @@ function TableContent() {
     dealerButton,
     currentPlayerId,
     actionOptions,
+    actionExpiry,
     isConnected,
     error,
     setTableId,
@@ -211,6 +212,41 @@ function TableContent() {
     }
   }, [sendAction, betAmount]);
 
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [maxTime, setMaxTime] = useState(0);
+
+  useEffect(() => {
+    if (!actionExpiry || !isMyTurn) {
+      setTimeRemaining(0);
+      return;
+    }
+
+    const expiryDate = new Date(actionExpiry).getTime();
+    const totalMs = expiryDate - Date.now();
+
+    if (totalMs <= 0) {
+      setTimeRemaining(0);
+      return;
+    }
+
+    setMaxTime(totalMs);
+    setTimeRemaining(totalMs);
+
+    const interval = setInterval(() => {
+      const remaining = expiryDate - Date.now();
+      if (remaining <= 0) {
+        setTimeRemaining(0);
+        clearInterval(interval);
+      } else {
+        setTimeRemaining(remaining);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [actionExpiry, isMyTurn]);
+
+  const timerPercent = maxTime > 0 ? (timeRemaining / maxTime) * 100 : 0;
+
   const actionButtons = getActionButtons(actionOptions);
   const localPlayer = players.find((p) => p.id === playerId);
   const localPlayerSeat = localPlayer?.seat ?? 0;
@@ -270,6 +306,12 @@ function TableContent() {
 
       {isMyTurn && actionButtons.length > 0 && (
         <div className="flex flex-col items-center gap-2 mt-4">
+          <div className="w-64 h-3 bg-[#1a3622] rounded-full overflow-hidden border-2 border-[#2d5a3d]">
+            <div 
+              className={`h-full transition-all duration-100 ${timerPercent < 30 ? 'bg-red-500' : timerPercent < 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
+              style={{ width: `${timerPercent}%` }}
+            />
+          </div>
           <div className="flex gap-2 flex-wrap justify-center max-w-lg">
             {actionButtons.map((button, i) => (
               <div key={i} className="flex flex-col">
