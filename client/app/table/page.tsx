@@ -149,6 +149,7 @@ function TableContent() {
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
     const storedTableId = localStorage.getItem('tableId');
+    const storedPlayerId = localStorage.getItem('playerId');
 
     if (storedToken) {
       useGameStore.getState().setAuthToken(storedToken);
@@ -156,18 +157,13 @@ function TableContent() {
     if (storedTableId) {
       setTableId(storedTableId);
     }
+    if (storedPlayerId) {
+      setPlayerId(parseInt(storedPlayerId, 10));
+    }
 
     if (storedToken && tableId) {
       const unsubscribe = tableSocket.onMessage((events) => {
         processEvents(events);
-        
-        const state = useGameStore.getState();
-        if (!state.playerId && events.length > 0) {
-          const firstPlayer = state.players[0];
-          if (firstPlayer) {
-            setPlayerId(firstPlayer.id);
-          }
-        }
       });
 
       tableSocket.connect(tableId, storedToken);

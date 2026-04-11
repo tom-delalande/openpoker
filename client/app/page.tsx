@@ -16,7 +16,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { setAuthToken, setPlayerName: setStorePlayerName, setTableId, setCurrentView } = useGameStore();
+  const { setAuthToken, setPlayerId, setTableId, setCurrentView } = useGameStore();
 
   const handleJoinTable = async () => {
     const name = playerName.trim() || `Player_${Math.floor(Math.random() * 10000)}`;
@@ -35,20 +35,21 @@ export default function HomePage() {
         throw new Error('Login failed');
       }
       
-      const token = await loginResponse.text();
-      console.log('Token:', token);
+      const authResponse = await loginResponse.json() as { token: string; playerId: number };
+      console.log('Auth response:', authResponse);
       
-      if (!token || typeof token !== 'string') {
-        throw new Error('Invalid token received');
+      if (!authResponse.token || !authResponse.playerId) {
+        throw new Error('Invalid auth response received');
       }
 
-      setAuthToken(token);
-      setStorePlayerName(name);
+      setAuthToken(authResponse.token);
+      setPlayerId(authResponse.playerId);
+      localStorage.setItem('playerId', authResponse.playerId.toString());
       localStorage.setItem('playerName', name);
-      localStorage.setItem('authToken', token);
+      localStorage.setItem('authToken', authResponse.token);
 
-      console.log('Sending join request to:', `${apiUrl}/game/join?token=${token}`);
-      const joinFetchResponse = await fetch(`${apiUrl}/game/join?token=${encodeURIComponent(token)}`, {
+      console.log('Sending join request to:', `${apiUrl}/game/join?token=${authResponse.token}`);
+      const joinFetchResponse = await fetch(`${apiUrl}/game/join?token=${encodeURIComponent(authResponse.token)}`, {
         method: 'POST',
       });
       console.log('Join fetch response status:', joinFetchResponse.status);

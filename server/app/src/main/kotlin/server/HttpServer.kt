@@ -21,19 +21,20 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import server.models.AuthResponse
 import server.models.HandEvent
 import server.models.PlayerAction
 
 private val json = Json
 
-fun Route.authEndpoints(authRepository: AuthRepository, idGenerator: () -> Int = { Random.nextInt()} ) {
+fun Route.authEndpoints(authRepository: AuthRepository, idGenerator: () -> Int = { Random.nextInt() }) {
     route("/auth") {
         post("/login/{name}") {
             val name = call.parameters["name"] ?: throw IllegalStateException()
             val playerId = idGenerator()
             val token = UUID.randomUUID().toString()
             authRepository.saveToken(token, playerId, name)
-            call.respond(token)
+            call.respond(AuthResponse(token, playerId))
         }
     }
 }

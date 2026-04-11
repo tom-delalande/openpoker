@@ -9,10 +9,6 @@ model AuthRequest {
   name: string;
 }
 
-model AuthResponse {
-  token: string;
-}
-
 model GetTablesRequest {}
 
 model GetTablesResponse {}
@@ -221,11 +217,16 @@ model SitDown {
   type: "SitDown";
 }
 
+model AuthResponse {
+  token: string;
+  playerId: int32;
+}
+
 @route("/auth")
 interface AuthService {
   @route("/login/{name}")
   @post
-  login(@path name: string): string;
+  login(@path name: string): AuthResponse;
 }
 @route("/game")
 interface GameService {

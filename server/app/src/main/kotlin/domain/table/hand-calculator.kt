@@ -223,6 +223,7 @@ private fun Map<Int, Int>.calculateStraights(): List<Int> {
 }
 
 private fun calculateHandScore(handStrength: HandStrength, handCards: List<Int>, highCards: List<Int>): Double {
+    if (handCards.isEmpty()) return 0.0
     val extraCards = highCards
         .filterNot { handCards.contains(it) }
         .toMutableList()

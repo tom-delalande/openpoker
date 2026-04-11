@@ -118,6 +118,8 @@ export interface components {
         };
         AuthResponse: {
             token: string;
+            /** Format: int32 */
+            playerId: number;
         };
         Bet: {
             /** @enum {string} */
@@ -570,7 +572,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/plain": string;
+                    "application/json": components["schemas"]["AuthResponse"];
                 };
             };
         };
