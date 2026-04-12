@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.ExperimentalSerializationApi
+import server.PlayerActionRequest
 import server.models.ActionOptionsBet
 import server.models.ActionOptionsCall
 import server.models.ActionOptionsCheck
@@ -119,7 +120,7 @@ class TableService(
     fun receivePlayerActions(
         tableId: UUID,
         playerId: Int,
-        actions: List<Table.Round.Action.PlayerAction>,
+        actions: List<PlayerActionRequest>,
         now: Instant = Instant.now(),
     ) {
         val activeTable = activeRepository.get(tableId)!!

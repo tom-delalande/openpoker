@@ -43,9 +43,6 @@ data class Table(
 
     fun Int.nextSeat() = (this + 1) % players.size
 
-    // TODO: [high] make this actually use active seat
-    fun Int.nextActiveSeat() = (this + 1) % players.size
-
     enum class GameType {
         HoldEm,
     }
@@ -253,15 +250,24 @@ data class Table(
             }
         }
 
+    val lastActivePlayerToAct: LivePlayerInfo
+        get() = livePlayers
+            .find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
+            ?: livePlayers.sortedBy { it.seat }.shift(dealerSeat).first()
+
     fun LivePlayerInfo.nextPlayerToAct(): LivePlayerInfo {
         return livePlayers.sortedBy { it.seat }.shift(seat + 1).first { !it.isOut && !it.isAllIn }
     }
+
+    val nextPlayerToAct: LivePlayerInfo
+        get() = lastActivePlayerToAct.nextPlayerToAct()
 
     val livePlayers: List<LivePlayerInfo>
         get() = rounds.fold(players.map {
             LivePlayerInfo(
                 playerId = it.id,
                 seat = it.seat,
+                name = it.name,
                 position = (it.seat - dealerSeat) % players.size,
                 currentStack = it.stack,
             )
@@ -362,6 +368,7 @@ data class Table(
     data class LivePlayerInfo(
         val playerId: Int,
         val seat: Int,
+        val name: String,
         val position: Int, // 0 is dealer, 1 is small blind ...
         val currentStack: Double,
         val contributionThisStreet: Double = 0.0,
