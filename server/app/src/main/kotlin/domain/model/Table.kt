@@ -253,8 +253,9 @@ data class Table(
             }
         }
 
-    val livePlayersById: Map<Int, LivePlayerInfo>
-        get() = livePlayers.associateBy { it.playerId }
+    fun LivePlayerInfo.nextPlayerToAct(): LivePlayerInfo {
+        return livePlayers.sortedBy { it.seat }.shift(seat + 1).first { !it.isOut && !it.isAllIn }
+    }
 
     val livePlayers: List<LivePlayerInfo>
         get() = rounds.fold(players.map {
@@ -262,7 +263,7 @@ data class Table(
                 playerId = it.id,
                 seat = it.seat,
                 position = (it.seat - dealerSeat) % players.size,
-                currentStack = it.stack
+                currentStack = it.stack,
             )
         }) { players, round ->
             return@fold round.actions.fold(players.map { it.copy(contributionThisStreet = 0.0) }) { players, action ->
@@ -288,7 +289,11 @@ data class Table(
                                 lastAction = action,
                             )
 
-                            is Round.Action.PlayerAction.DealCards -> player.copy(cards = player.cards + action.cards)
+                            is Round.Action.PlayerAction.DealCards -> player.copy(
+                                cards = player.cards + action.cards,
+                                pocketCards = player.pocketCards + action.cards
+                            )
+
                             is Round.Action.PlayerAction.Fold -> player.copy(isOut = true, lastAction = action)
                             is Round.Action.PlayerAction.PostAnte -> player.copy(
                                 contributionThisStreet = player.contributionThisStreet + action.amount,
@@ -365,5 +370,13 @@ data class Table(
         val isAllIn: Boolean = false,
         val lastAction: Round.Action.PlayerAction? = null,
         val cards: List<Card> = emptyList(),
+        val pocketCards: List<Card> = emptyList(),
     )
+}
+
+internal fun <T> List<T>.shift(shift: Int): List<T> {
+    if (isEmpty()) return this
+    val n = size
+    val k = ((shift % n) + n) % n
+    return drop(k) + take(k)
 }

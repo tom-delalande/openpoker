@@ -1,14 +1,21 @@
 package domain.table
 
 import domain.model.Table
+import domain.model.Table.Pot
 import domain.model.Table.Card.Suit
+import domain.model.Table.Round.Action.PlayerAction.Bet
+import domain.model.Table.Round.Action.PlayerAction.Call
+import domain.model.Table.Round.Action.PlayerAction.Check
+import domain.model.Table.Round.Action.PlayerAction.DealCards
+import domain.model.Table.Round.Action.PlayerAction.Fold
+import domain.model.Table.Round.Action.PlayerAction.PostBigBlind
+import domain.model.Table.Round.Action.PlayerAction.PostSmallBlind
+import domain.model.Table.Round.Action.PlayerAction.Raise
+import domain.model.Table.Round.Action.PlayerAction.RequestAction
+import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption
+import domain.model.Table.Round.Action.PlayerAction.ShowCards
 import kotlin.test.assertEquals
-import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption as ActionOption
-import domain.model.Table.Round.Action.PlayerAction.*
-import java.time.Instant
-import kotlin.math.min
 import org.junit.jupiter.api.Test
-import server.models.CommunityCardDealt
 
 class TableLogicTest {
     @Test
@@ -332,7 +339,7 @@ class TableLogicTest {
     }
 
     @Test
-    fun `complete hand, call call call pre-flop, check bet raise call call post flop, check bet fold post turn, and check check post river, showdown, winners`() {
+    fun `complete hand, call call call pre-flop, check bet raise call call post flop, check bet fold call post turn, and check check post river, showdown, winners`() {
         val seedGenerator = { 1L }
         var table = givenWellKnownTournamentTable {
             withSeed(1)
@@ -633,13 +640,13 @@ class TableLogicTest {
         // Community Card Dealt
         table = table.processTable(now, seedGenerator)
         assertEquals(11, table.rounds[1].actions.size)
-        // Small Blind Checks
         assertEquals(
             Table.Round.Action.DealCommunityCards(
                 cards = listOf("3d".c())
             ),
             table.rounds[2].actions[0],
         )
+        // Small Blind Checks
         assertEquals(
             RequestAction(
                 playerId = 2,
@@ -654,11 +661,129 @@ class TableLogicTest {
         )
         table = table.processPlayerAction(2, Check(2), now)
         assertEquals(Check(2), table.rounds[2].actions[2])
-       
-        // TODO: [high] [next] finish turn river and showdown
+
+        // Big Blind Bets
+        table = table.processTable(now, seedGenerator)
+        assertEquals(
+            RequestAction(
+                playerId = 3,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Check,
+                    ActionOption.Bet(minAmount = 10.0, maxAmount = 970.0)
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[2].actions[3],
+        )
+        table = table.processPlayerAction(3, Bet(3, amount = 10.0, isAllIn = false), now)
+        assertEquals(Bet(3, 10.0, false), table.rounds[2].actions[4])
+
+        // Dealer Folds
+        table = table.processTable(now, seedGenerator)
+        assertEquals(
+            RequestAction(
+                playerId = 1,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Call(amount = 10.0),
+                    ActionOption.Raise(minAmount = 20.0, maxAmount = 970.0)
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[2].actions[5],
+        )
+        table = table.processPlayerAction(1, Fold(1), now)
+        assertEquals(Fold(1), table.rounds[2].actions[6])
+
+        // Small Blind Calls
+        table = table.processTable(now, seedGenerator)
+        assertEquals(
+            RequestAction(
+                playerId = 2,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Call(amount = 10.0),
+                    ActionOption.Raise(minAmount = 20.0, maxAmount = 970.0)
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[2].actions[7],
+        )
+        table = table.processPlayerAction(2, Call(2, amount = 10.0, isAllIn = false), now)
+        assertEquals(Call(2, amount = 10.0, false), table.rounds[2].actions[8])
+
+        // -- River --
+        // Community Card Dealt
+        table = table.processTable(now, seedGenerator)
+        assertEquals(9, table.rounds[2].actions.size)
+        assertEquals(
+            Table.Round.Action.DealCommunityCards(
+                cards = listOf("6s".c())
+            ),
+            table.rounds[3].actions[0],
+        )
+
+        assertEquals(
+            RequestAction(
+                playerId = 2,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Check,
+                    ActionOption.Bet(minAmount = 10.0, maxAmount = 960.0)
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[3].actions[1],
+        )
+        table = table.processPlayerAction(2, Check(2), now)
+        assertEquals(Check(2), table.rounds[3].actions[2])
+
+        assertEquals(
+            RequestAction(
+                playerId = 3,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Check,
+                    ActionOption.Bet(minAmount = 10.0, maxAmount = 960.0)
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[3].actions[3],
+        )
+        table = table.processPlayerAction(3, Check(3), now)
+        assertEquals(Check(3), table.rounds[3].actions[4])
+
+        // -- Showdown --
+        // Showdown
+        table = table.processTable(now, seedGenerator)
+        assertEquals(5, table.rounds[3].actions.size)
+        assertEquals(
+            ShowCards(
+                playerId = 3,
+                cards = listOf("1h".c(), "2d".c())
+            ),
+            table.rounds[4].actions[0],
+        )
+        assertEquals(
+            ShowCards(
+                playerId = 2,
+                cards = listOf("11d".c(), "1s".c())
+            ),
+            table.rounds[4].actions[1],
+        )
+
+        // Small Blind Wins
+        assertEquals(true, table.isFinished)
+        assertEquals(
+            listOf(
+                Pot(number = 0, amount = 110.0, jackpot = 0.0, playerWins = listOf(Pot.PlayerWin(playerId = 2, winAmount = 110.0)))
+            ), table.pots
+        )
     }
 
     // TODO: add a test with early all ins
+    // TODO: add a test with early folds
     // TODO: add a test with 2 winners
     // TODO: add a test with split pot (all in with smaller stack and wins)
     // TODO: add a test for wrong action

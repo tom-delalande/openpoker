@@ -5,6 +5,7 @@ import domain.model.Table.Round
 import java.time.Instant
 import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption as ActionOption
 import domain.model.Table.Round.Action.PlayerAction.*
+import domain.model.shift
 import domain.tournament.CashGameRepository
 import kotlin.math.max
 import kotlin.math.min
@@ -189,10 +190,12 @@ private fun Table.attemptFinishRound(): Table {
     }
 
     val lastAction = playerRoundActions.filterNot { it is RequestAction }.last()
-    val lastActionPlayer = players.find { it.id == lastAction.playerId }
-    val nextPlayerToAct = livePlayers.find { it.seat == lastActionPlayer?.seat?.nextSeat() }
+    val lastActionPlayer = livePlayers.find { it.playerId == lastAction.playerId }
+    val nextPlayerToAct = lastActionPlayer?.nextPlayerToAct()
     val lastRaiseActionPlayerId =
-        if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it !is PostSmallBlind && it !is PostBigBlind && it !is RequestAction }) {
+        if (currentRound?.street != Round.Street.PreFlop && playerRoundActions.none { it is Raise || it is Bet }) {
+            playerRoundActions.firstOrNull { it is Check }?.playerId
+        } else if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it !is PostSmallBlind && it !is PostBigBlind && it !is RequestAction }) {
             playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
                 ?: players.find { it.seat == bigBlindPlayer.seat.nextSeat() }?.id
         } else {
@@ -240,11 +243,31 @@ private fun Table.finishHand(): Table {
     val winners = calculateWinners()
     val winnings = pot / winners.count()
 
+    val firstPlayerToShow = rounds
+        .flatMap { it.actions }
+        .filterIsInstance<Round.Action.PlayerAction>()
+        .lastOrNull { it is Bet || it is Raise }
+        ?.playerId ?: smallBlindPlayer.id
+
+    val firstSeatToShow = livePlayers.find { it.playerId == firstPlayerToShow }?.seat ?: smallBlindPlayer.seat
+    val players = livePlayers.sortedBy { it.seat }.shift(firstSeatToShow).filterNot { it.isOut }
+
+    val showdown = if (players.size > 1) {
+        listOf(
+            Round(
+                id = 4,
+                street = Round.Street.Showdown,
+                actions = players.map {
+                    ShowCards(it.playerId, it.pocketCards)
+                }
+            )
+        )
+    } else emptyList()
+
     // TODO: [high] Calculate split pots and all that
-
-
     return copy(
         isFinished = true,
+        rounds = rounds + showdown,
         pots = listOf(
             Table.Pot(
                 number = 0,
@@ -267,19 +290,20 @@ private fun Table.calculateWinners(): List<Int> {
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
-    if (rounds.isEmpty() || players.isEmpty()) return copy()
+    if (rounds.isEmpty() || players.isEmpty() || isFinished) return copy()
     val lastAction = currentRound?.actions?.filterIsInstance<Round.Action.PlayerAction>()
         ?.lastOrNull { it !is DealCards }
     // TODO: [high] this needs to be only counting live players
-    val lastActionPlayer = players.find { it.id == lastAction?.playerId } ?: players[dealerSeat]
+    val lastActionPlayer =
+        livePlayers.find { it.playerId == lastAction?.playerId } ?: livePlayers.find { it.seat == dealerSeat }
 
-    val nextPlayer = players[players.indexOf(lastActionPlayer).nextSeat()]
+    val nextPlayer = lastActionPlayer?.nextPlayerToAct()
 
-    val playerRaise = livePlayersById[nextPlayer.id]!!.contributionThisStreet
-    val playerStack = livePlayersById[nextPlayer.id]!!.currentStack
+    val playerRaise = nextPlayer!!.contributionThisStreet
+    val playerStack = nextPlayer.currentStack
 
     val actionOptions = buildList {
-        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == smallBlindPlayer.id && playerRoundActions.filterIsInstance<PostSmallBlind>()
+        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.playerId == smallBlindPlayer.id && playerRoundActions.filterIsInstance<PostSmallBlind>()
                 .none()
         ) {
             add(ActionOption.Fold)
@@ -287,7 +311,7 @@ private fun Table.requestNextAction(now: Instant): Table {
             return@buildList
         }
 
-        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.id == bigBlindPlayer.id && playerRoundActions.filterIsInstance<PostBigBlind>()
+        if (currentRound?.street == Round.Street.PreFlop && nextPlayer.playerId == bigBlindPlayer.id && playerRoundActions.filterIsInstance<PostBigBlind>()
                 .none()
         ) {
             add(ActionOption.Fold)
@@ -325,7 +349,7 @@ private fun Table.requestNextAction(now: Instant): Table {
 
 
     val actionRequest = RequestAction(
-        playerId = nextPlayer.id,
+        playerId = nextPlayer.playerId,
         actionOptions = actionOptions,
         expiry = now.plusSeconds(10),
     )
