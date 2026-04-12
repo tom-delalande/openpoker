@@ -1,13 +1,11 @@
 package server
 
-import app.logger
 import domain.table.TableService
 import domain.tournament.CashGameService
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
-import io.ktor.server.websocket.WebSocketServerSession
 import io.ktor.server.websocket.sendSerialized
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
@@ -93,17 +91,5 @@ fun Route.tableEndpoints(
                 job.cancel()
             }
         }
-    }
-}
-
-@OptIn(ExperimentalSerializationApi::class)
-fun WebSocketServerSession.process(): List<PlayerAction> = buildList {
-    while (true) {
-        val result = incoming.tryReceive()
-        val frame = result.getOrNull() ?: break
-        frame as? Frame.Text ?: continue
-        val receivedText = frame.readText()
-        val playerAction = json.decodeFromString<PlayerAction>(receivedText)
-        add(playerAction)
     }
 }

@@ -7,6 +7,7 @@ import domain.model.Table
 import domain.tournament.CashGameRepository
 import java.time.Instant
 import java.util.UUID
+import kotlin.random.Random
 import kotlin.time.toKotlinInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
@@ -72,7 +73,6 @@ import server.models.PostBigBlindOptionType
 import server.models.PostSmallBlind
 import server.models.PostSmallBlindOption
 import server.models.PostSmallBlindOptionType
-import server.models.PostSmallBlindType
 import server.models.PrivateCardDealt
 import server.models.PrivateCardDealtType
 import server.models.RaiseOption
@@ -85,7 +85,7 @@ class TableService(
     val historicRepository: HandHistoryRepository,
     val sessions: Map<UUID, MutableSharedFlow<HandEvent>>,
 ) {
-    suspend fun process(now: Instant = Instant.now()) {
+    suspend fun process(now: Instant = Instant.now(), seedGenerator: () -> Long = { Random.nextLong() }) {
         val tables = activeRepository.getActiveTables()
         tables.forEach { (tableId, table, sockets) ->
             val updated = table.processTable(now)
@@ -311,9 +311,9 @@ class TableService(
                                             )
                                         )
 
-                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostBigBlind -> ActionOptionsPostSmallBlind(
-                                            value = PostSmallBlindOption(
-                                                type = PostSmallBlindOptionType.POST_SMALL_BLIND_OPTION,
+                                        is Table.Round.Action.PlayerAction.RequestAction.ActionOption.PostBigBlind -> ActionOptionsPostBigBlind(
+                                            value = PostBigBlindOption(
+                                                type = PostBigBlindOptionType.POST_BIG_BLIND_OPTION,
                                                 amount = it.amount,
                                             )
                                         )

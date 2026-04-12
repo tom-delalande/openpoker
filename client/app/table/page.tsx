@@ -80,11 +80,15 @@ function PlayerSeat({
   isDealer, 
   isCurrentPlayer,
   localPlayerSeat,
+  myCards,
+  isLocalPlayer,
 }: { 
   player: { id: number; name: string; stack: number; seat: number; cards?: string[]; hasFolded?: boolean; currentBet: number };
   isDealer: boolean;
   isCurrentPlayer: boolean;
   localPlayerSeat: number;
+  myCards?: string[];
+  isLocalPlayer: boolean;
 }) {
   const relativeSeat = (player.seat - localPlayerSeat + SEAT_POSITIONS.length) % SEAT_POSITIONS.length;
   const seatIndex = (relativeSeat + 4) % SEAT_POSITIONS.length;
@@ -106,8 +110,15 @@ function PlayerSeat({
         </div>
       )}
       <div className="flex gap-1 mb-1">
-        <Card cardStr={player.cards?.[0] || 'XX'} hidden={player.hasFolded} />
-        <Card cardStr={player.cards?.[1] || 'XX'} hidden={player.hasFolded} />
+        {(() => {
+          const cards = isLocalPlayer ? myCards : player.cards;
+          return (
+            <>
+              <Card cardStr={cards?.[0] || 'XX'} hidden={player.hasFolded} />
+              <Card cardStr={cards?.[1] || 'XX'} hidden={player.hasFolded} />
+            </>
+          );
+        })()}
       </div>
       <div className={`bg-[#0d3d22] text-white px-3 py-1 rounded text-sm ${isCurrentPlayer ? 'ring-2 ring-yellow-400' : ''}`}>
         <div className="font-bold">{player.name}</div>
@@ -125,6 +136,7 @@ function TableContent() {
   const {
     playerId,
     players,
+    myCards,
     communityCards,
     currentPot,
     dealerButton,
@@ -301,6 +313,8 @@ function TableContent() {
                 isDealer={player.seat === dealerButton}
                 isCurrentPlayer={player.id === currentPlayerId}
                 localPlayerSeat={localPlayerSeat}
+                myCards={player.id === playerId ? myCards : undefined}
+                isLocalPlayer={player.id === playerId}
               />
             ))}
           </div>

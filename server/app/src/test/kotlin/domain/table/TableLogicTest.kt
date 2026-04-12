@@ -1,8 +1,10 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package domain.table
 
 import domain.model.Table
-import domain.model.Table.Pot
 import domain.model.Table.Card.Suit
+import domain.model.Table.Pot
 import domain.model.Table.Round.Action.PlayerAction.Bet
 import domain.model.Table.Round.Action.PlayerAction.Call
 import domain.model.Table.Round.Action.PlayerAction.Check
@@ -15,6 +17,7 @@ import domain.model.Table.Round.Action.PlayerAction.RequestAction
 import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption
 import domain.model.Table.Round.Action.PlayerAction.ShowCards
 import kotlin.test.assertEquals
+import kotlinx.serialization.ExperimentalSerializationApi
 import org.junit.jupiter.api.Test
 import server.PlayerActionRequest
 
