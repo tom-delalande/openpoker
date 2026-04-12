@@ -393,7 +393,7 @@ class TableService(
             is HandEventPrivateCardDealt -> if (event.value.playerId == playerId) event else HandEventPrivateCardDealt(
                 value = PrivateCardDealt(
                     type = PrivateCardDealtType.PRIVATE_CARD_DEALT_EVENT,
-                    playerId = playerId,
+                    playerId = event.value.playerId,
                     cards = event.value.cards.map { "XX" }
                 )
             )
