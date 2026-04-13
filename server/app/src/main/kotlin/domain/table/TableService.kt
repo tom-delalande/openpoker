@@ -2,7 +2,6 @@
 
 package domain.table
 
-import app.logger
 import domain.model.Table
 import domain.tournament.CashGameRepository
 import java.time.Instant
@@ -33,6 +32,7 @@ import server.models.FoldOption
 import server.models.FoldOptionType
 import server.models.HandEvent
 import server.models.HandEventCommunityCardDealt
+import server.models.HandEventHandFinished
 import server.models.HandEventHandStarted
 import server.models.HandEventPlayerActionRequested
 import server.models.HandEventPlayerBet
@@ -46,6 +46,8 @@ import server.models.HandEventPlayerSatDown
 import server.models.HandEventPlayerStoodUp
 import server.models.HandEventPrivateCardDealt
 import server.models.HandEventRoundStarted
+import server.models.HandFinished
+import server.models.HandFinishedType
 import server.models.HandStarted
 import server.models.HandStartedType
 import server.models.PlayerActionRequested
@@ -70,7 +72,6 @@ import server.models.PlayerStoodUp
 import server.models.PlayerStoodUpType
 import server.models.PostBigBlindOption
 import server.models.PostBigBlindOptionType
-import server.models.PostSmallBlind
 import server.models.PostSmallBlindOption
 import server.models.PostSmallBlindOptionType
 import server.models.PrivateCardDealt
@@ -375,6 +376,18 @@ class TableService(
                     is Table.Round.Action.PlayerAction.ShowCards -> TODO()
                 }
             }
+        }
+
+        if (isFinished) {
+            add(
+                HandEventHandFinished(
+                    value = HandFinished(
+                        type = HandFinishedType.HAND_FINISHED,
+                        winners = pots.flatMap { it.playerWins.map { it.playerId } }
+                    )
+
+                )
+            )
         }
     }
 

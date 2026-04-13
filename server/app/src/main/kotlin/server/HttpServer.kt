@@ -88,7 +88,7 @@ fun Route.tableEndpoints(
             }.onFailure { exception ->
                 println("WebSocket exception: ${exception.localizedMessage}")
             }.also {
-                job.cancel()
+                // job.cancel()
             }
         }
     }

@@ -126,7 +126,8 @@ fun Table.startNextHand(
         players = players.map { player ->
             player.copy(
                 isSittingOut = false,
-                stack = player.stack + pots.flatMap { it.playerWins }.filter { it.playerId == player.id }
+                stack = livePlayers.first { it.playerId == player.id }.currentStack + pots.flatMap { it.playerWins }
+                    .filter { it.playerId == player.id }
                     .sumOf { it.winAmount }
             )
         },
@@ -199,8 +200,7 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
     }
 
     if (!actionAllowed) {
-        logger.error("Unexpected action. playerId[$playerId] action[$action] options[$actionOptions]")
-        return this
+        throw IllegalStateException("Unexpected action. playerId[$playerId] action[$action] options[$actionOptions]")
     }
 
     val tableAction = when (action) {
@@ -319,7 +319,7 @@ private fun Table.attemptFinishRound(): Table {
     val lastRaiseActionPlayerId =
         if (currentRound?.street != Round.Street.PreFlop && playerRoundActions.none { it is Raise || it is Bet }) {
             playerRoundActions.firstOrNull { it is Check }?.playerId
-        } else if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it !is PostSmallBlind && it !is PostBigBlind && it !is RequestAction }) {
+        } else if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it !is PostSmallBlind && it !is PostBigBlind && it !is RequestAction && it !is Fold }) {
             playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
             // TODO: [low] add  test to check if this breaks when UTG folds
                 ?: players.find { it.seat == bigBlindPlayer.seat.nextSeat() }?.id
@@ -420,10 +420,10 @@ private fun Table.requestNextAction(now: Instant): Table {
     val playerStack = nextPlayerToAct.currentStack
 
     val actionOptions = buildList {
-        if (currentRound?.street == Round.Street.PreFlop && nextPlayerToAct.playerId == smallBlindPlayer.id && playerRoundActions.filterIsInstance<PostSmallBlind>()
+        if (currentRound?.street == Round.Street.PreFlop
+            && nextPlayerToAct.playerId == smallBlindPlayer.id && playerRoundActions.filterIsInstance<PostSmallBlind>()
                 .none()
         ) {
-            add(ActionOption.Fold)
             add(ActionOption.PostSmallBlind(amount = min(smallBlindAmount, playerStack)))
             return@buildList
         }
@@ -431,7 +431,6 @@ private fun Table.requestNextAction(now: Instant): Table {
         if (currentRound?.street == Round.Street.PreFlop && nextPlayerToAct.playerId == bigBlindPlayer.id && playerRoundActions.filterIsInstance<PostBigBlind>()
                 .none()
         ) {
-            add(ActionOption.Fold)
             add(ActionOption.PostBigBlind(amount = min(bigBlindAmount, playerStack)))
             return@buildList
         }
@@ -478,6 +477,7 @@ private fun Table.timeoutCurrentActionRequest(latestAction: RequestAction): Tabl
     logger.info("Timeout. playerId[${latestAction.playerId}]")
     val defaultAction = latestAction.actionOptions.first()
     val playerId = latestAction.playerId
+    val player = livePlayers.first { it.playerId == playerId }
 
     val newAction = when (defaultAction) {
         ActionOption.Check -> Check(
@@ -488,13 +488,23 @@ private fun Table.timeoutCurrentActionRequest(latestAction: RequestAction): Tabl
             playerId = playerId,
         )
 
+        is ActionOption.PostSmallBlind -> PostSmallBlind(
+            playerId = playerId,
+            amount = min(player.currentStack, defaultAction.amount),
+            isAllIn = defaultAction.amount >= player.currentStack
+        )
+
+        is ActionOption.PostBigBlind -> PostBigBlind(
+            playerId = playerId,
+            amount = min(player.currentStack, defaultAction.amount),
+            isAllIn = defaultAction.amount >= player.currentStack
+        )
+
         is ActionOption.Call,
         is ActionOption.Bet,
         is ActionOption.PostAnte,
-        is ActionOption.PostBigBlind,
         is ActionOption.PostDeadBlind,
         is ActionOption.PostExtraBlind,
-        is ActionOption.PostSmallBlind,
         is ActionOption.PostStraddle,
         is ActionOption.Raise,
         ActionOption.MuckCards,

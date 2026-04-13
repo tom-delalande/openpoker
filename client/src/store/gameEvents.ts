@@ -31,6 +31,7 @@ export function handleGameEvent(event: HandEvent): void {
       store.setCurrentPot(0);
       store.setCurrentStreet(null);
       store.setActionOptions(null);
+      store.setActionExpiry(null);
       store.setCurrentPlayerId(null);
       store.setMyCards([]);
       store.players.forEach((p) => {
@@ -109,7 +110,7 @@ case 'PlayerFolded': {
     }
 
     case 'PlayerChecked': {
-      store.setCurrentPot(store.currentPot);
+      store.updatePlayer(event.value.playerId, { hasActed: true });
       break;
     }
 
@@ -143,43 +144,9 @@ case 'PlayerFolded': {
       break;
     }
 
-    case 'PlayerChecked': {
-      store.updatePlayer(event.value.playerId, { hasActed: true });
-      break;
-    }
-
-    case 'PlayerBet': {
-      const { playerId: betPlayerId, amount } = event.value;
-      const player = store.players.find((p) => p.id === betPlayerId);
-      if (player) {
-        store.updatePlayer(betPlayerId, { stack: player.stack - amount, hasActed: true });
-      }
-      store.setCurrentPot(store.currentPot + amount);
-      break;
-    }
-
-    case 'PlayerRaised': {
-      const { playerId: raisePlayerId, amount } = event.value;
-      const player = store.players.find((p) => p.id === raisePlayerId);
-      if (player) {
-        store.updatePlayer(raisePlayerId, { stack: player.stack - amount, hasActed: true });
-      }
-      store.setCurrentPot(store.currentPot + amount);
-      break;
-    }
-
-    case 'PlayerCalled': {
-      const { playerId: callPlayerId, amount } = event.value;
-      const player = store.players.find((p) => p.id === callPlayerId);
-      if (player) {
-        store.updatePlayer(callPlayerId, { stack: player.stack - amount, hasActed: true });
-      }
-      store.setCurrentPot(store.currentPot + amount);
-      break;
-    }
-
     case 'HandFinished': {
       store.setActionOptions(null);
+      store.setActionExpiry(null);
       store.setCurrentPlayerId(null);
       store.setMyCards([]);
       store.setCommunityCards([]);

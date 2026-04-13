@@ -2,6 +2,7 @@
 
 package domain.table
 
+import domain.model.PlayerWin
 import domain.model.Table
 import domain.model.Table.Card.Suit
 import domain.model.Table.Pot
@@ -19,6 +20,7 @@ import domain.model.Table.Round.Action.PlayerAction.ShowCards
 import kotlin.test.assertEquals
 import kotlinx.serialization.ExperimentalSerializationApi
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import server.PlayerActionRequest
 
 class TableLogicTest {
@@ -79,7 +81,7 @@ class TableLogicTest {
             RequestAction(
                 playerId = 2,
                 actionOptions = listOf(
-                    ActionOption.Fold,
+//                    ActionOption.Fold,
                     ActionOption.PostSmallBlind(amount = DEFAULT_SMALL_BLIND_AMOUNT)
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(10),
@@ -116,7 +118,7 @@ class TableLogicTest {
             RequestAction(
                 playerId = 3,
                 actionOptions = listOf(
-                    ActionOption.Fold,
+//                    ActionOption.Fold,
                     ActionOption.PostBigBlind(amount = DEFAULT_BIG_BLIND_AMOUNT)
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(21),
@@ -159,7 +161,7 @@ class TableLogicTest {
             RequestAction(
                 playerId = 3,
                 actionOptions = listOf(
-                    ActionOption.Fold,
+//                    ActionOption.Fold,
                     ActionOption.PostBigBlind(amount = DEFAULT_BIG_BLIND_AMOUNT)
                 ),
                 expiry = wellKnownTimestamp.plusSeconds(10),
@@ -168,7 +170,7 @@ class TableLogicTest {
         )
     }
 
-//    @Test
+    //    @Test
     fun `given table with big blind requested, when big blind posts, then under the gun has actions requested`() {
         val initialTable = givenWellKnownTournamentTable {
             withSeed(1)
@@ -178,7 +180,10 @@ class TableLogicTest {
             withAction(
                 RequestAction(
                     3,
-                    actionOptions = listOf(ActionOption.Fold, ActionOption.PostBigBlind(DEFAULT_BIG_BLIND_AMOUNT)),
+                    actionOptions = listOf(
+//                        ActionOption.Fold,
+                        ActionOption.PostBigBlind(DEFAULT_BIG_BLIND_AMOUNT)
+                    ),
                     expiry = wellKnownTimestamp.plusSeconds(DEFAULT_TIMEOUT_IN_SECONDS)
                 )
             )
@@ -376,12 +381,11 @@ class TableLogicTest {
             RequestAction(
                 playerId = 2,
                 actionOptions = listOf(
-                    ActionOption.Fold,
+//                    ActionOption.Fold,
                     ActionOption.PostSmallBlind(amount = 5.0)
                 ),
                 expiry = now.plusSeconds(10)
-            ),
-            table.rounds[0].actions[0],
+            ), table.rounds[0].actions[0]
         )
 
         table = table.processPlayerAction(
@@ -407,7 +411,7 @@ class TableLogicTest {
             RequestAction(
                 playerId = 3,
                 actionOptions = listOf(
-                    ActionOption.Fold,
+//                    ActionOption.Fold,
                     ActionOption.PostBigBlind(amount = 10.0)
                 ),
                 expiry = now.plusSeconds(10)
@@ -771,18 +775,266 @@ class TableLogicTest {
         assertEquals(true, table.isFinished)
         assertEquals(
             listOf(
-                Pot(number = 0, amount = 110.0, jackpot = 0.0, playerWins = listOf(Pot.PlayerWin(playerId = 2, winAmount = 110.0)))
+                Pot(
+                    number = 0,
+                    amount = 110.0,
+                    jackpot = 0.0,
+                    playerWins = listOf(Pot.PlayerWin(playerId = 2, winAmount = 110.0))
+                )
             ), table.pots
         )
     }
 
-    // TODO: add a test with early all ins
     // TODO: add a test with early folds
+    @Test
+    fun `complete hand, call call call pre-flop, check bet fold fold post flop, hand ended`() {
+        val seedGenerator = { 1L }
+        var table = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDealerSeat(0)
+            withDefaultPlayers(3)
+            withBlinds(
+                smallBlind = 5.0,
+                bigBlind = 10.0,
+            )
+        }
+
+        var now = wellKnownTimestamp
+        table = table.processTable(now, seedGenerator)
+        table = table.processTable(now, seedGenerator)
+
+        // Pre-flop
+        table = table.processPlayerAction(
+            playerId = 2,
+            action = PlayerActionRequest.PostSmallBlind(playerId = 2, amount = 5.0),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        table = table.processPlayerAction(
+            playerId = 3,
+            action = PlayerActionRequest.PostBigBlind(playerId = 3, amount = 10.0),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        table = table.processPlayerAction(
+            playerId = 1,
+            action = PlayerActionRequest.Call(playerId = 1, amount = 10.0),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        table = table.processPlayerAction(
+            playerId = 2,
+            action = PlayerActionRequest.Call(playerId = 2, amount = 5.0),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        table = table.processPlayerAction(
+            playerId = 3,
+            action = PlayerActionRequest.Check(playerId = 3),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        assertEquals(
+            listOf(
+                RequestAction(
+                    playerId = 2,
+                    actionOptions = listOf(
+//                        ActionOption.Fold,
+                        ActionOption.PostSmallBlind(amount = 5.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                PostSmallBlind(playerId = 2, amount = 5.0, false),
+                RequestAction(
+                    playerId = 3,
+                    actionOptions = listOf(
+//                        ActionOption.Fold,
+                        ActionOption.PostBigBlind(amount = 10.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                PostBigBlind(playerId = 3, amount = 10.0, false),
+                DealCards(
+                    playerId = 2,
+                    cards = listOf("11d".c(), "1s".c()),
+                ),
+                DealCards(
+                    playerId = 3,
+                    cards = listOf("1h".c(), "2d".c()),
+                ),
+
+                DealCards(
+                    playerId = 1,
+                    cards = listOf("10s".c(), "12c".c()),
+                ),
+                RequestAction(
+                    playerId = 1,
+                    actionOptions = listOf(
+                        ActionOption.Fold,
+                        ActionOption.Call(amount = 10.0),
+                        ActionOption.Raise(minAmount = 20.0, maxAmount = 1000.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                Call(playerId = 1, amount = 10.0, false),
+                RequestAction(
+                    playerId = 2,
+                    actionOptions = listOf(
+                        ActionOption.Fold,
+                        ActionOption.Call(amount = 5.0),
+                        ActionOption.Raise(minAmount = 15.0, maxAmount = 995.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                Call(playerId = 2, amount = 5.0, false),
+                RequestAction(
+                    playerId = 3,
+                    actionOptions = listOf(
+                        ActionOption.Fold,
+                        ActionOption.Check,
+                        ActionOption.Raise(minAmount = 10.0, maxAmount = 990.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                Check(playerId = 3),
+            ), table.rounds[0].actions
+        )
+
+        // Flop
+        table = table.processPlayerAction(
+            playerId = 2,
+            action = PlayerActionRequest.Check(playerId = 2),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        table = table.processPlayerAction(
+            playerId = 3,
+            action = PlayerActionRequest.Bet(playerId = 3, amount = 30.0),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        table = table.processPlayerAction(
+            playerId = 1,
+            action = PlayerActionRequest.Fold(playerId = 1),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+        table = table.processPlayerAction(
+            playerId = 2,
+            action = PlayerActionRequest.Fold(playerId = 2),
+            now = now
+        )
+            .processTable(now, seedGenerator)
+
+
+        assertEquals(
+            listOf(
+                Table.Round.Action.DealCommunityCards(
+                    listOf(
+                        Table.Card(suit = Suit.Diamonds, rank = 8),
+                        Table.Card(suit = Suit.Spades, rank = 4),
+                        Table.Card(suit = Suit.Clubs, rank = 11)
+                    )
+                ),
+                RequestAction(
+                    playerId = 2,
+                    actionOptions = listOf(
+                        ActionOption.Fold,
+                        ActionOption.Check,
+                        ActionOption.Bet(minAmount = 10.0, maxAmount = 990.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                Check(playerId = 2),
+                RequestAction(
+                    playerId = 3,
+                    actionOptions = listOf(
+                        ActionOption.Fold,
+                        ActionOption.Check,
+                        ActionOption.Bet(minAmount = 10.0, maxAmount = 990.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                Bet(playerId = 3, amount = 30.0, isAllIn = false),
+                RequestAction(
+                    playerId = 1,
+                    actionOptions = listOf(
+                        ActionOption.Fold,
+                        ActionOption.Call(30.0),
+                        ActionOption.Raise(minAmount = 40.0, maxAmount = 990.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                Fold(playerId = 1),
+                RequestAction(
+                    playerId = 2,
+                    actionOptions = listOf(
+                        ActionOption.Fold,
+                        ActionOption.Call(30.0),
+                        ActionOption.Raise(minAmount = 40.0, maxAmount = 990.0)
+                    ),
+                    expiry = now.plusSeconds(10)
+                ),
+                Fold(playerId = 2),
+            ), table.rounds[1].actions
+        )
+        assertEquals(true, table.isFinished)
+        assertEquals(
+            listOf(
+                Pot(
+                    number = 0,
+                    amount = 60.0,
+                    jackpot = 0.0,
+                    playerWins = listOf(Pot.PlayerWin(playerId = 3, winAmount = 60.0))
+                )
+            ), table.pots
+        )
+
+        val nextHand = table.startNextHand()
+        assertEquals(990.0, nextHand.players[0].stack)
+        assertEquals(990.0, nextHand.players[1].stack)
+        assertEquals(1020.0, nextHand.players[2].stack)
+    }
+
+    @Test
+    fun `pre-flop, small blind cannot folds`() {
+        val seedGenerator = { 1L }
+        var table = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDealerSeat(0)
+            withDefaultPlayers(3)
+            withBlinds(
+                smallBlind = 5.0,
+                bigBlind = 10.0,
+            )
+        }
+
+        var now = wellKnownTimestamp
+        table = table.processTable(now, seedGenerator)
+        table = table.processTable(now, seedGenerator)
+
+        // Pre-flop
+        assertThrows<IllegalStateException> {
+            table = table.processPlayerAction(
+                playerId = 2,
+                action = PlayerActionRequest.Fold(playerId = 2),
+                now = now
+            )
+                .processTable(now, seedGenerator)
+        }
+    }
+
+    // TODO: add a test with early all ins
     // TODO: add a test with 2 winners
     // TODO: add a test with split pot (all in with smaller stack and wins)
-    // TODO: add a test for wrong action
-    // TODO: add a test for acting out of turn
-    // TODO: add a test for action with wrong amount
 
 
     fun String.c(): Table.Card {
