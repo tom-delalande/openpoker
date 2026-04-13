@@ -92,6 +92,8 @@ private fun Table.dealCards(): Table {
 }
 
 fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLong() }): Table {
+    if (isFinished) return this
+
     if (rounds.isEmpty() && players.size >= 3) {
         return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator(), now = now)
     }
@@ -134,6 +136,7 @@ fun Table.startNextHand(
         smallBlindAmount = smallBlindAmount,
         bigBlindAmount = bigBlindAmount,
         isFinished = false,
+        finishedAt = null,
         rounds = listOf(
             Round(
                 id = 0,
@@ -289,7 +292,6 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
     }
 
     return appendAction(tableAction)
-        .processPostAction(now)
 }
 
 private fun Table.getCards(numberOfCards: Int): List<Table.Card> {

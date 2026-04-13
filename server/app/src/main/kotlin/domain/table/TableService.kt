@@ -2,6 +2,7 @@
 
 package domain.table
 
+import app.logger
 import domain.model.Table
 import domain.tournament.CashGameRepository
 import java.time.Instant
@@ -131,6 +132,7 @@ class TableService(
     ) {
         val activeTable = activeRepository.get(tableId)!!
         val updated = actions.fold(activeTable.table) { table, action ->
+            logger.info("Processed player action. playerId[$playerId] table[$tableId] action[$action]")
             table.processPlayerAction(playerId, action, now)
         }
         saveTable(tableId, updated, activeTable.playerSockets, now)
@@ -138,13 +140,14 @@ class TableService(
 
     fun saveTable(id: UUID, table: Table, playerSockets: List<Socket>, now: Instant) {
         if (table.isFinished) {
-            historicRepository.saveHand(id, table)
-            if (table.finishedAt != null && table.finishedAt.plusSeconds(5).isBefore(now)) {
-                val nextHand = table.startNextHand(now = now)
-                activeRepository.set(id, nextHand, playerSockets.map { it.copy(version = 0) })
-            } else {
-                activeRepository.set(id, table, playerSockets)
-            }
+//            historicRepository.saveHand(id, table)
+//            if (table.finishedAt != null && table.finishedAt.plusSeconds(5).isBefore(now)) {
+//                val nextHand = table.startNextHand(now = now)
+//                activeRepository.set(id, nextHand, playerSockets.map { it.copy(version = 0) })
+//            } else {
+//                activeRepository.set(id, table, playerSockets)
+//            }
+            activeRepository.set(id, table, playerSockets)
         } else {
             activeRepository.set(id, table, playerSockets)
         }
