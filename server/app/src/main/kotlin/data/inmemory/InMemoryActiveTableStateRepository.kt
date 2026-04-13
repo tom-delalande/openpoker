@@ -19,11 +19,16 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
         return tables[id]
     }
 
+    override fun getSession(sessionId: UUID): ActiveTable? {
+        return tables.values.find { it.playerSockets.any { it.sessionId == sessionId } && !it.finished }
+    }
+
     override fun set(
         id: UUID,
         table: Table,
+        finished: Boolean,
         playerSockets: List<Socket>,
     ) {
-        tables[id] = ActiveTable(id, table, playerSockets)
+        tables[id] = ActiveTable(id, table, playerSockets, finished)
     }
 }

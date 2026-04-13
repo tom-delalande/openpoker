@@ -1,8 +1,10 @@
 package domain.model
 
 import java.time.Instant
+import java.util.UUID
 
 data class Table(
+    val handId: UUID,
     val gameType: GameType,
     val betLimit: BetLimit,
     val tableSize: Int,

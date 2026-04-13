@@ -94,11 +94,12 @@ class TableService(
 ) {
     suspend fun process(now: Instant = Instant.now(), seedGenerator: () -> Long = { Random.nextLong() }) {
         val tables = activeRepository.getActiveTables()
-        tables.forEach { (tableId, table, sockets) ->
+        tables.forEach { (tableId, table, sockets, finished) ->
             val updated = table.processTable(now)
             val events = updated.toEvents()
             val updatedSockets = mutableListOf<Socket>()
             for (playerSocket in sockets) {
+                if (playerSocket.currentHandId != tableId) continue
                 val playerEvents = events
                     .drop(playerSocket.version)
                     .prepareForPlayer(playerSocket.playerId)
@@ -110,7 +111,7 @@ class TableService(
                 updatedSockets.add(playerSocket.copy(version = events.size))
             }
 
-            saveTable(tableId, updated, updatedSockets.toList(), now)
+            saveTable(tableId, updated, finished, updatedSockets.toList(), now)
         }
     }
 
@@ -119,38 +120,49 @@ class TableService(
         // TODO: [low] there has got a better way to prevent websockets from over-writting each other here -> Test case TODO [1]
         mutex.withLock {
             val table = activeRepository.get(tableId) ?: throw IllegalStateException()
-            saveTable(tableId, table.table, table.playerSockets + Socket(playerId, sessionId, 0), now)
+            saveTable(
+                tableId,
+                table.table,
+                table.finished,
+                table.playerSockets + Socket(playerId, sessionId, tableId, 0),
+                now
+            )
         }
     }
 
-
     fun receivePlayerActions(
-        tableId: UUID,
+        sessionId: UUID,
         playerId: Int,
         actions: List<PlayerActionRequest>,
         now: Instant = Instant.now(),
     ) {
-        val activeTable = activeRepository.get(tableId)!!
+        val activeTable = activeRepository.getSession(sessionId)!!
         val updated = actions.fold(activeTable.table) { table, action ->
-            logger.info("Processed player action. playerId[$playerId] table[$tableId] action[$action]")
+            logger.info("Processed player action. playerId[$playerId] session[$sessionId] action[$action]")
             table.processPlayerAction(playerId, action, now)
                 .processPostAction(now)
         }
-        saveTable(tableId, updated, activeTable.playerSockets, now)
+        saveTable(activeTable.id, updated, activeTable.finished, activeTable.playerSockets, now)
     }
 
-    fun saveTable(id: UUID, table: Table, playerSockets: List<Socket>, now: Instant) {
+    fun saveTable(id: UUID, table: Table, finished: Boolean, playerSockets: List<Socket>, now: Instant) {
+        if (finished) return
         if (table.isFinished) {
-//            historicRepository.saveHand(id, table)
-//            if (table.finishedAt != null && table.finishedAt.plusSeconds(5).isBefore(now)) {
-//                val nextHand = table.startNextHand(now = now)
-//                activeRepository.set(id, nextHand, playerSockets.map { it.copy(version = 0) })
-//            } else {
-//                activeRepository.set(id, table, playerSockets)
-//            }
-            activeRepository.set(id, table, playerSockets)
+            historicRepository.saveHand(id, table)
+            if (table.finishedAt != null && table.finishedAt.plusSeconds(5).isBefore(now)) {
+                val nextHandId = UUID.randomUUID()
+                val nextHand = table.startNextHand(now = now)
+                activeRepository.set(
+                    nextHandId,
+                    nextHand,
+                    false,
+                    playerSockets.map { it.copy(currentHandId = nextHandId, version = 0) })
+                activeRepository.set(id, table, true, playerSockets)
+            } else {
+                activeRepository.set(id, table, false, playerSockets)
+            }
         } else {
-            activeRepository.set(id, table, playerSockets)
+            activeRepository.set(id, table, false, playerSockets)
         }
     }
 
@@ -158,7 +170,7 @@ class TableService(
         val activeTable = activeRepository.get(id)
         val table = activeTable?.table ?: createTable()
         val updated = table.addPlayer(player)
-        activeRepository.set(id, updated, activeTable?.playerSockets ?: emptyList())
+        activeRepository.set(id, updated, activeTable?.finished ?: false, activeTable?.playerSockets ?: emptyList())
     }
 
     @OptIn(ExperimentalSerializationApi::class)

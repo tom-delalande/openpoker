@@ -74,22 +74,21 @@ fun Route.tableEndpoints(
                 }
             }
 
-            runCatching {
-                incoming.consumeEach { frame ->
-                    if (frame is Frame.Text) {
+            incoming.consumeEach { frame ->
+                if (frame is Frame.Text) {
+                    try {
+
                         val receivedText = frame.readText()
                         val playerAction = json.decodeFromString<PlayerAction>(receivedText)
                         tableService.receivePlayerActions(
-                            tableId,
+                            sessionId,
                             player.playerId,
                             listOf(playerAction.toDomain(player.playerId))
                         )
+                    } catch (exception: Exception) {
+                        println("WebSocket exception: ${exception.localizedMessage}")
                     }
                 }
-            }.onFailure { exception ->
-                println("WebSocket exception: ${exception.localizedMessage}")
-            }.also {
-                // job.cancel()
             }
         }
     }

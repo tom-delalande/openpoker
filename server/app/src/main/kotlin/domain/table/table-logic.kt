@@ -8,6 +8,7 @@ import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption a
 import domain.model.Table.Round.Action.PlayerAction.*
 import domain.model.shift
 import domain.tournament.CashGameRepository
+import java.util.UUID
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
@@ -26,6 +27,7 @@ fun createTable(
     seed: Long = Random.nextLong(),
 ): Table {
     val table = Table(
+        handId = UUID.randomUUID(),
         gameType = Table.GameType.HoldEm,
         // TODO: [medium] this is unused
         betLimit = Table.BetLimit(
@@ -123,6 +125,7 @@ fun Table.startNextHand(
     now: Instant,
 ): Table {
     return copy(
+        handId = UUID.randomUUID(),
         dealerSeat = dealerSeat,
         players = players.map { player ->
             player.copy(
@@ -166,6 +169,7 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
         throw IllegalStateException("Unexpected action. playerId[$playerId] action[$action] lastEvent[$lastAction]")
     }
     if (lastAction.playerId != playerId) {
+
         throw IllegalStateException("Unexpected action for player. playerId[$playerId] expectedPlayerId[${lastAction.playerId}]")
     }
 
