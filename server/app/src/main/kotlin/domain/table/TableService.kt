@@ -134,6 +134,7 @@ class TableService(
         val updated = actions.fold(activeTable.table) { table, action ->
             logger.info("Processed player action. playerId[$playerId] table[$tableId] action[$action]")
             table.processPlayerAction(playerId, action, now)
+                .processPostAction(now)
         }
         saveTable(tableId, updated, activeTable.playerSockets, now)
     }

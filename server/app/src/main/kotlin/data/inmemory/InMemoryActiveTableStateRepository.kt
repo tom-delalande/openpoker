@@ -12,7 +12,7 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
     private val tables: MutableMap<UUID, ActiveTable> = ConcurrentHashMap()
 
     override fun getActiveTables(): List<ActiveTable> {
-        return tables.values.toList().filter { !it.table.isFinished }
+        return tables.values.toList()
     }
 
     override fun get(id: UUID): ActiveTable? {
