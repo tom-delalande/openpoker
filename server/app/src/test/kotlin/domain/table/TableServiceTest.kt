@@ -61,14 +61,14 @@ class TableServiceTest {
 
         val tableId = UUID.randomUUID()
         val playerSockets = listOf(
-            Socket(0, UUID.randomUUID(), 0),
-            Socket(1, UUID.randomUUID(), 0),
-            Socket(2, UUID.randomUUID(), 0)
+            Socket(0, UUID.randomUUID(), UUID.randomUUID(),0),
+            Socket(1, UUID.randomUUID(), UUID.randomUUID(),0),
+            Socket(2, UUID.randomUUID(), UUID.randomUUID(),0)
         )
         val player1Flow = MutableSharedFlow<HandEvent>(replay = 100)
         websockets[playerSockets[0].sessionId] = player1Flow
 
-        activeTableStateRepository.set(tableId, table, playerSockets)
+        activeTableStateRepository.set(tableId, table, false, playerSockets)
         var now = wellKnownTimestamp
 
         tableService.process(now, seedGenerator)
@@ -120,14 +120,14 @@ class TableServiceTest {
 
         val tableId = UUID.randomUUID()
         val playerSockets = listOf(
-            Socket(0, UUID.randomUUID(), 0),
-            Socket(1, UUID.randomUUID(), 0),
-            Socket(2, UUID.randomUUID(), 0)
+            Socket(0, UUID.randomUUID(), UUID.randomUUID(),0),
+            Socket(1, UUID.randomUUID(), UUID.randomUUID(),0),
+            Socket(2, UUID.randomUUID(), UUID.randomUUID(),0)
         )
-        activeTableStateRepository.set(tableId, table, playerSockets)
+        activeTableStateRepository.set(tableId, table, false, playerSockets)
 
         val sevenSecondsLater = wellKnownTimestamp.plusSeconds(7)
-        tableService.saveTable(tableId, table, playerSockets, sevenSecondsLater)
+        tableService.saveTable(tableId, table, false, playerSockets, sevenSecondsLater)
         var activeTable = activeTableStateRepository.get(tableId)!!
         
         assertFalse(activeTable.table.isFinished, "Expected isFinished to be false after 5+ seconds")
@@ -157,14 +157,14 @@ class TableServiceTest {
 
         val tableId = UUID.randomUUID()
         val playerSockets = listOf(
-            Socket(0, UUID.randomUUID(), 42),
-            Socket(1, UUID.randomUUID(), 42),
-            Socket(2, UUID.randomUUID(), 42)
+            Socket(0, UUID.randomUUID(), UUID.randomUUID(),42),
+            Socket(1, UUID.randomUUID(), UUID.randomUUID(),42),
+            Socket(2, UUID.randomUUID(), UUID.randomUUID(),42)
         )
-        activeTableStateRepository.set(tableId, table, playerSockets)
+        activeTableStateRepository.set(tableId, table, false, playerSockets)
 
         val sevenSecondsLater = wellKnownTimestamp.plusSeconds(7)
-        tableService.saveTable(tableId, table, playerSockets, sevenSecondsLater)
+        tableService.saveTable(tableId, table, false, playerSockets, sevenSecondsLater)
 
         val activeTable = activeTableStateRepository.get(tableId)!!
         assertEquals(0, activeTable.playerSockets[0].version)
@@ -196,9 +196,9 @@ class TableServiceTest {
 
         val tableId = UUID.randomUUID()
         val playerSockets = listOf(
-            Socket(0, UUID.randomUUID(), 100),
-            Socket(1, UUID.randomUUID(), 100),
-            Socket(2, UUID.randomUUID(), 100)
+            Socket(0, UUID.randomUUID(), UUID.randomUUID(),100),
+            Socket(1, UUID.randomUUID(), UUID.randomUUID(),100),
+            Socket(2, UUID.randomUUID(), UUID.randomUUID(),100)
         )
         val player1Flow = MutableSharedFlow<HandEvent>(replay = 100)
         val player2Flow = MutableSharedFlow<HandEvent>(replay = 100)
@@ -207,15 +207,15 @@ class TableServiceTest {
         websockets[playerSockets[1].sessionId] = player2Flow
         websockets[playerSockets[2].sessionId] = player3Flow
 
-        activeTableStateRepository.set(tableId, table, playerSockets)
+        activeTableStateRepository.set(tableId, table, false, playerSockets)
 
         val threeSecondsLater = wellKnownTimestamp.plusSeconds(3)
-        tableService.saveTable(tableId, table, playerSockets, threeSecondsLater)
+        tableService.saveTable(tableId, table, false, playerSockets, threeSecondsLater)
         var activeTable = activeTableStateRepository.get(tableId)!!
         assertTrue(activeTable.table.isFinished)
 
         val sevenSecondsLater = wellKnownTimestamp.plusSeconds(7)
-        tableService.saveTable(tableId, table, playerSockets, sevenSecondsLater)
+        tableService.saveTable(tableId, table, false, playerSockets, sevenSecondsLater)
         activeTable = activeTableStateRepository.get(tableId)!!
         assertFalse(activeTable.table.isFinished)
         assertEquals(0, activeTable.playerSockets[0].version)

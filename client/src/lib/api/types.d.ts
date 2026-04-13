@@ -310,7 +310,7 @@ export interface components {
         HandFinished: {
             /** @enum {string} */
             type: "HandFinished";
-            winners: number[];
+            players: components["schemas"]["PlayerStack"][];
         };
         HandStarted: {
             /** @enum {string} */
@@ -483,6 +483,13 @@ export interface components {
             /** Format: int32 */
             playerId: number;
             cards: string[];
+        };
+        PlayerStack: {
+            /** Format: int32 */
+            playerId: number;
+            /** Format: double */
+            stack: number;
+            winner: boolean;
         };
         PlayerStoodUp: {
             /** @enum {string} */

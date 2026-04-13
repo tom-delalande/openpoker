@@ -155,7 +155,14 @@ case 'PlayerFolded': {
       store.setActionOptions(null);
       store.setActionExpiry(null);
       store.setCurrentPlayerId(null);
-      store.setWinners(event.value.winners);
+      const winnerIds: number[] = [];
+      event.value.players.forEach((p) => {
+        store.updatePlayer(p.playerId, { stack: p.stack });
+        if (p.winner) {
+          winnerIds.push(p.playerId);
+        }
+      });
+      store.setWinners(winnerIds);
       break;
     }
 

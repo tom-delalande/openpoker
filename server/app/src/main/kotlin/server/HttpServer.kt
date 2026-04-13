@@ -1,5 +1,6 @@
 package server
 
+import app.logger
 import domain.table.TableService
 import domain.tournament.CashGameService
 import io.ktor.server.response.respond
@@ -86,7 +87,7 @@ fun Route.tableEndpoints(
                             listOf(playerAction.toDomain(player.playerId))
                         )
                     } catch (exception: Exception) {
-                        println("WebSocket exception: ${exception.localizedMessage}")
+                        logger.error("WebSocket exception: ${exception.localizedMessage}", exception)
                     }
                 }
             }

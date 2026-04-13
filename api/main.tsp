@@ -68,9 +68,15 @@ model PrivateCardDealt {
   cards: string[];
 }
 
+model PlayerStack {
+  playerId: int32;
+  stack: float64;
+  winner: boolean;
+}
+
 model HandFinished {
   type: "HandFinished";
-  winners: int32[];
+  players: PlayerStack[];
 }
 
 model PlayerActionRequested {

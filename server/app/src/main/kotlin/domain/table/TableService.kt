@@ -74,6 +74,7 @@ import server.models.PlayerSatDown
 import server.models.PlayerSatDownType
 import server.models.PlayerShowedCard
 import server.models.PlayerShowedCardType
+import server.models.PlayerStack
 import server.models.PlayerStoodUp
 import server.models.PlayerStoodUpType
 import server.models.PostBigBlindOption
@@ -416,7 +417,15 @@ class TableService(
                 HandEventHandFinished(
                     value = HandFinished(
                         type = HandFinishedType.HAND_FINISHED,
-                        winners = pots.flatMap { it.playerWins.map { it.playerId } }
+                        players = livePlayers.map { player ->
+                            PlayerStack(
+                                playerId = player.playerId,
+                                stack = player.currentStack + pots.flatMap { it.playerWins }
+                                    .filter { it.playerId == player.playerId }
+                                    .sumOf { it.winAmount },
+                                winner = pots.flatMap { it.playerWins }.any { it.playerId == player.playerId }
+                            )
+                        }
                     )
 
                 )

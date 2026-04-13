@@ -1,0 +1,6 @@
+- Open Hand History
+- Postgres
+- Redis
+- Split pots
+- Dead blinds
+- Add some delay to the showdowns and cards dealt
