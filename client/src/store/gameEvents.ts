@@ -34,6 +34,7 @@ export function handleGameEvent(event: HandEvent): void {
       store.setActionExpiry(null);
       store.setCurrentPlayerId(null);
       store.setMyCards([]);
+      store.setWinners([]);
       store.players.forEach((p) => {
         store.updatePlayer(p.id, { hasActed: false, hasFolded: false, cards: undefined, currentBet: 0 });
       });
@@ -144,12 +145,17 @@ case 'PlayerFolded': {
       break;
     }
 
+    case 'PlayerShowedCard': {
+      const { playerId: showPlayerId, cards } = event.value;
+      store.updatePlayer(showPlayerId, { cards });
+      break;
+    }
+
     case 'HandFinished': {
       store.setActionOptions(null);
       store.setActionExpiry(null);
       store.setCurrentPlayerId(null);
-      store.setMyCards([]);
-      store.setCommunityCards([]);
+      store.setWinners(event.value.winners);
       break;
     }
 

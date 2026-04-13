@@ -19,6 +19,8 @@ class TableSocket {
     this.tableId = tableId;
     this.token = token;
 
+    console.log(`[TableSocket] Connecting to table ${tableId}`);
+
     const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001'}/table/ws/table/${tableId}/token/${token}`;
     
     try {
@@ -55,6 +57,7 @@ class TableSocket {
       try {
         const data = JSON.parse(event.data);
         const events: HandEvent[] = Array.isArray(data) ? data : [data];
+        console.log('%c[TableSocket] ← Received events:', 'color: #3b82f6; font-weight: bold', JSON.stringify(events));
         this.messageHandlers.forEach((handler) => handler(events));
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
@@ -87,6 +90,7 @@ class TableSocket {
     }
 
     try {
+      console.log('%c[TableSocket] → Sending action: %s', 'color: #10b981; font-weight: bold', JSON.stringify(action));
       this.ws.send(JSON.stringify(action));
     } catch (error) {
       console.error('Failed to send action:', error);

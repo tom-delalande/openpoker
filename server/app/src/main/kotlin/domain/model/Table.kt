@@ -14,6 +14,8 @@ data class Table(
     val rounds: List<Round>,
     val pots: List<Pot>,
     val isFinished: Boolean = false,
+    val startedAt: Instant? = null,
+    val finishedAt: Instant? = null,
     val seed: Long,
 ) {
     val currentRound: Round?

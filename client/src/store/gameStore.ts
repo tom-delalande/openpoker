@@ -29,6 +29,7 @@ export interface GameState {
   isLoading: boolean;
   error: string | null;
   currentStreet: string | null;
+  winners: number[];
 }
 
 export interface GameActions {
@@ -51,6 +52,7 @@ export interface GameActions {
   setActionOptions: (options: import('../lib/api/types').components['schemas']['ActionOptions'][] | null) => void;
   setActionExpiry: (expiry: string | null) => void;
   setCurrentStreet: (street: string | null) => void;
+  setWinners: (winners: number[]) => void;
   reset: () => void;
 }
 
@@ -72,6 +74,7 @@ const initialState: GameState = {
   isLoading: false,
   error: null,
   currentStreet: null,
+  winners: [],
 };
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -112,6 +115,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   setActionOptions: (options) => set({ actionOptions: options }),
   setActionExpiry: (expiry) => set({ actionExpiry: expiry }),
   setCurrentStreet: (street) => set({ currentStreet: street }),
+  setWinners: (winners) => set({ winners }),
 
   reset: () => set(initialState),
 }));

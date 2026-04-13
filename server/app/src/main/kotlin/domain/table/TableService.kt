@@ -5,8 +5,10 @@ package domain.table
 import domain.model.Table
 import domain.tournament.CashGameRepository
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toKotlinInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
@@ -43,6 +45,7 @@ import server.models.HandEventPlayerPostedBigBlind
 import server.models.HandEventPlayerPostedSmallBlind
 import server.models.HandEventPlayerRaised
 import server.models.HandEventPlayerSatDown
+import server.models.HandEventPlayerShowedCard
 import server.models.HandEventPlayerStoodUp
 import server.models.HandEventPrivateCardDealt
 import server.models.HandEventRoundStarted
@@ -68,6 +71,8 @@ import server.models.PlayerRaised
 import server.models.PlayerRaisedType
 import server.models.PlayerSatDown
 import server.models.PlayerSatDownType
+import server.models.PlayerShowedCard
+import server.models.PlayerShowedCardType
 import server.models.PlayerStoodUp
 import server.models.PlayerStoodUpType
 import server.models.PostBigBlindOption
@@ -104,16 +109,16 @@ class TableService(
                 updatedSockets.add(playerSocket.copy(version = events.size))
             }
 
-            saveTable(tableId, updated, updatedSockets.toList())
+            saveTable(tableId, updated, updatedSockets.toList(), now)
         }
     }
 
     val mutex = Mutex()
-    suspend fun addWebSocketConnection(playerId: Int, tableId: UUID, sessionId: UUID) {
+    suspend fun addWebSocketConnection(playerId: Int, tableId: UUID, sessionId: UUID, now: Instant) {
         // TODO: [low] there has got a better way to prevent websockets from over-writting each other here -> Test case TODO [1]
         mutex.withLock {
             val table = activeRepository.get(tableId) ?: throw IllegalStateException()
-            saveTable(tableId, table.table, table.playerSockets + Socket(playerId, sessionId, 0))
+            saveTable(tableId, table.table, table.playerSockets + Socket(playerId, sessionId, 0), now)
         }
     }
 
@@ -128,14 +133,18 @@ class TableService(
         val updated = actions.fold(activeTable.table) { table, action ->
             table.processPlayerAction(playerId, action, now)
         }
-        saveTable(tableId, updated, activeTable.playerSockets)
+        saveTable(tableId, updated, activeTable.playerSockets, now)
     }
 
-    fun saveTable(id: UUID, table: Table, playerSockets: List<Socket>) {
+    fun saveTable(id: UUID, table: Table, playerSockets: List<Socket>, now: Instant) {
         if (table.isFinished) {
             historicRepository.saveHand(id, table)
-            val nextHand = table.startNextHand()
-            activeRepository.set(id, nextHand, playerSockets)
+            if (table.finishedAt != null && table.finishedAt.plusSeconds(5).isBefore(now)) {
+                val nextHand = table.startNextHand(now = now)
+                activeRepository.set(id, nextHand, playerSockets.map { it.copy(version = 0) })
+            } else {
+                activeRepository.set(id, table, playerSockets)
+            }
         } else {
             activeRepository.set(id, table, playerSockets)
         }
@@ -373,7 +382,15 @@ class TableService(
                     is Table.Round.Action.PlayerAction.PostDeadBlind -> TODO()
                     is Table.Round.Action.PlayerAction.PostExtraBlind -> TODO()
                     is Table.Round.Action.PlayerAction.PostStraddle -> TODO()
-                    is Table.Round.Action.PlayerAction.ShowCards -> TODO()
+                    is Table.Round.Action.PlayerAction.ShowCards -> add(
+                        HandEventPlayerShowedCard(
+                            value = PlayerShowedCard(
+                                type = PlayerShowedCardType.PLAYER_SHOWED_CARD,
+                                playerId = action.playerId,
+                                cards = action.cards.map { it.toStringValue() }
+                            )
+                        )
+                    )
                 }
             }
         }

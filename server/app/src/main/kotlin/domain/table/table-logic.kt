@@ -8,12 +8,10 @@ import domain.model.Table.Round.Action.PlayerAction.RequestAction.ActionOption a
 import domain.model.Table.Round.Action.PlayerAction.*
 import domain.model.shift
 import domain.tournament.CashGameRepository
-import kotlin.math.log
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 import server.PlayerActionRequest
-import server.models.BetOption
 
 const val DEFAULT_SMALL_BLIND_AMOUNT = 5.0
 const val DEFAULT_BIG_BLIND_AMOUNT = 10.0
@@ -95,7 +93,7 @@ private fun Table.dealCards(): Table {
 
 fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLong() }): Table {
     if (rounds.isEmpty() && players.size >= 3) {
-        return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator())
+        return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator(), now = now)
     }
 
     return when (val latestAction = currentRound?.actions?.lastOrNull()) {
@@ -120,6 +118,7 @@ fun Table.startNextHand(
     bigBlindAmount: Double = this.bigBlindAmount,
     dealerSeat: Int = smallBlindPlayer.seat,
     seed: Long = Random.nextLong(),
+    now: Instant,
 ): Table {
     return copy(
         dealerSeat = dealerSeat,
@@ -131,6 +130,7 @@ fun Table.startNextHand(
                     .sumOf { it.winAmount }
             )
         },
+        startedAt = now,
         smallBlindAmount = smallBlindAmount,
         bigBlindAmount = bigBlindAmount,
         isFinished = false,
@@ -146,7 +146,7 @@ fun Table.startNextHand(
     )
 }
 
-fun Table.processPostAction(now: Instant): Table = attemptFinishRound()
+fun Table.processPostAction(now: Instant): Table = attemptFinishRound(now)
     .performDealerActions()
     .requestNextAction(now)
 
@@ -304,13 +304,13 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
     }.shuffled(Random(seed)).subList(offset, offset + numberOfCards)
 }
 
-private fun Table.attemptFinishRound(): Table {
+private fun Table.attemptFinishRound(now: Instant): Table {
     if (rounds.isEmpty() || playerRoundActions.isEmpty() || players.isEmpty()) {
         return copy()
     }
 
     if (livePlayers.count { !it.isOut } == 1) {
-        return finishHand()
+        return finishHand(now)
     }
 
     val lastAction = playerRoundActions.filterNot { it is RequestAction }.last()
@@ -329,7 +329,7 @@ private fun Table.attemptFinishRound(): Table {
 
     if (lastRaiseActionPlayerId == nextPlayerToAct?.playerId) {
         if (currentRound?.street == Round.Street.River || livePlayers.all { it.isAllIn }) {
-            return finishHand()
+            return finishHand(now)
         } else {
             val street = when (currentRound?.street) {
                 Round.Street.PreFlop -> Round.Street.Flop
@@ -363,7 +363,8 @@ private fun Table.attemptFinishRound(): Table {
     return this
 }
 
-private fun Table.finishHand(): Table {
+private fun Table.finishHand(now: Instant): Table {
+    if (isFinished) return this
     val winners = calculateWinners()
     val winnings = pot / winners.count()
 
@@ -391,6 +392,7 @@ private fun Table.finishHand(): Table {
     // TODO: [high] Calculate split pots and all that
     return copy(
         isFinished = true,
+        finishedAt = now,
         rounds = rounds + showdown,
         pots = listOf(
             Table.Pot(
@@ -512,6 +514,7 @@ private fun Table.timeoutCurrentActionRequest(latestAction: RequestAction): Tabl
             -> throw IllegalStateException("Unexpected default action: $defaultAction")
 
     }
+    logger.info("Auto-acting for player. playerId[$playerId] action[$newAction]")
     return appendAction(newAction)
 }
 

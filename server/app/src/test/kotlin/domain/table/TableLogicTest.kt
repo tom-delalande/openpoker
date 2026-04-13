@@ -998,7 +998,7 @@ class TableLogicTest {
             ), table.pots
         )
 
-        val nextHand = table.startNextHand()
+        val nextHand = table.startNextHand(now = now)
         assertEquals(990.0, nextHand.players[0].stack)
         assertEquals(990.0, nextHand.players[1].stack)
         assertEquals(1020.0, nextHand.players[2].stack)

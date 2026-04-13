@@ -10,6 +10,7 @@ import io.ktor.server.websocket.sendSerialized
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
@@ -65,7 +66,7 @@ fun Route.tableEndpoints(
             val player = authRepository.getPlayer(token) ?: return@webSocket
             websockets[sessionId] = messageResponseFlow
             // TODO: [low] memory leak (this is never cleaned up)
-            tableService.addWebSocketConnection(player.playerId, tableId, sessionId)
+            tableService.addWebSocketConnection(player.playerId, tableId, sessionId, Instant.now())
 
             val job = launch {
                 sharedFlow.collect { message ->

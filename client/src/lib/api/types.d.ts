@@ -480,6 +480,8 @@ export interface components {
         PlayerShowedCard: {
             /** @enum {string} */
             type: "PlayerShowedCard";
+            /** Format: int32 */
+            playerId: number;
             cards: string[];
         };
         PlayerStoodUp: {

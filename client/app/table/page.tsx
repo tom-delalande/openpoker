@@ -82,6 +82,7 @@ function PlayerSeat({
   localPlayerSeat,
   myCards,
   isLocalPlayer,
+  isWinner,
 }: { 
   player: { id: number; name: string; stack: number; seat: number; cards?: string[]; hasFolded?: boolean; currentBet: number };
   isDealer: boolean;
@@ -89,6 +90,7 @@ function PlayerSeat({
   localPlayerSeat: number;
   myCards?: string[];
   isLocalPlayer: boolean;
+  isWinner: boolean;
 }) {
   const relativeSeat = (player.seat - localPlayerSeat + SEAT_POSITIONS.length) % SEAT_POSITIONS.length;
   const seatIndex = (relativeSeat + 4) % SEAT_POSITIONS.length;
@@ -99,11 +101,16 @@ function PlayerSeat({
       className={`absolute flex flex-col items-center transition-all ${isCurrentPlayer ? 'scale-110' : ''}`}
       style={{ left: `${position.x}%`, top: `${position.y}%`, transform: 'translate(-50%, -50%)' }}
     >
-      {isDealer && (
-        <div className="absolute -top-6 w-6 h-6 bg-white rounded-full border-2 border-[#1a5c32] flex items-center justify-center text-xs font-bold text-[#1a5c32] shadow-md">
-          D
-        </div>
-      )}
+{isDealer && (
+          <div className="absolute -top-6 w-6 h-6 bg-white rounded-full border-2 border-[#1a5c32] flex items-center justify-center text-xs font-bold text-[#1a5c32] shadow-md">
+            D
+          </div>
+        )}
+        {isWinner && (
+          <div className="absolute -top-6 w-6 h-6 bg-yellow-400 rounded-full border-2 border-yellow-600 flex items-center justify-center text-xs font-bold text-yellow-800 shadow-md">
+            ✸
+          </div>
+        )}
       {isCurrentPlayer && (
         <div className="absolute -top-6 w-6 h-6 bg-yellow-400 rounded-full border-2 border-[#1a5c32] flex items-center justify-center text-xs font-bold text-[#1a5c32] shadow-md animate-pulse">
           !
@@ -120,7 +127,7 @@ function PlayerSeat({
           );
         })()}
       </div>
-      <div className={`bg-[#0d3d22] text-white px-3 py-1 rounded text-sm ${isCurrentPlayer ? 'ring-2 ring-yellow-400' : ''}`}>
+      <div className={`bg-[#0d3d22] text-white px-3 py-1 rounded text-sm ${isCurrentPlayer ? 'ring-2 ring-yellow-400' : ''} ${isWinner ? 'ring-4 ring-yellow-300' : ''}`}>
         <div className="font-bold">{player.name}</div>
         {player.currentBet > 0 && (
           <div className="text-blue-300 text-xs">{formatAmount(player.currentBet)}</div>
@@ -145,6 +152,7 @@ function TableContent() {
     actionExpiry,
     isConnected,
     error,
+    winners,
     setTableId,
     setPlayerId,
     setCurrentView,
@@ -174,7 +182,9 @@ function TableContent() {
       setTableId(storedTableId);
     }
     if (storedPlayerId) {
-      setPlayerId(parseInt(storedPlayerId, 10));
+      const playerId = parseInt(storedPlayerId, 10);
+      console.log(`[TablePage] Player ID received: ${playerId}`);
+      setPlayerId(playerId);
     }
 
     if (storedToken && tableId) {
@@ -315,6 +325,7 @@ function TableContent() {
                 localPlayerSeat={localPlayerSeat}
                 myCards={player.id === playerId ? myCards : undefined}
                 isLocalPlayer={player.id === playerId}
+                isWinner={winners.includes(player.id)}
               />
             ))}
           </div>

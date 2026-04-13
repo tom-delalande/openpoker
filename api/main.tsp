@@ -168,6 +168,7 @@ model PlayerCalled {
 }
 model PlayerShowedCard {
   type: "PlayerShowedCard";
+  playerId: int32;
   cards: string[];
 }
 
