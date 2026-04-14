@@ -1,8 +1,18 @@
+@file:UseSerializers(
+    UUIDSerializer::class,
+    InstantSerializer::class,
+)
+
 package domain.model
 
+import common.InstantSerializer
+import common.UUIDSerializer
 import java.time.Instant
 import java.util.UUID
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 
+@Serializable
 data class Table(
     val handId: UUID,
     val gameType: GameType,
@@ -51,6 +61,7 @@ data class Table(
         HoldEm,
     }
 
+    @Serializable
     data class BetLimit(
         val betType: BetType,
         val betCap: Double?,
@@ -60,6 +71,7 @@ data class Table(
         }
     }
 
+    @Serializable
     data class Player(
         val id: Int,
         val name: String,
@@ -68,6 +80,7 @@ data class Table(
         val isSittingOut: Boolean,
     )
 
+    @Serializable
     data class Round(
         val id: Int,
         val street: Street,
@@ -81,115 +94,148 @@ data class Table(
             Showdown,
         }
 
+        @Serializable
         sealed interface Action {
+            @Serializable
             sealed interface PlayerAction : Action {
                 // TODO: [medium] this should really use seatId
                 val playerId: Int
 
+                @Serializable
                 data class RequestAction(
                     override val playerId: Int,
                     val actionOptions: List<ActionOption>,
                     val expiry: Instant,
                 ) : PlayerAction {
+                    @Serializable
                     sealed interface ActionOption {
+                        @Serializable
                         object MuckCards : ActionOption
+                        @Serializable
                         object ShowCards : ActionOption
+                        @Serializable
                         data class PostAnte(val amount: Double) : ActionOption
+                        @Serializable
                         data class PostSmallBlind(val amount: Double) : ActionOption
+                        @Serializable
                         data class PostBigBlind(val amount: Double) : ActionOption
+                        @Serializable
                         data class PostStraddle(val amount: Double) : ActionOption
+                        @Serializable
                         data class PostDeadBlind(val amount: Double) : ActionOption
+                        @Serializable
                         data class PostExtraBlind(val amount: Double) : ActionOption
+                        @Serializable
                         object Fold : ActionOption
+                        @Serializable
                         object Check : ActionOption
+                        @Serializable
                         data class Bet(val minAmount: Double, val maxAmount: Double?) : ActionOption
+                        @Serializable
                         data class Call(val amount: Double) : ActionOption
+                        @Serializable
                         data class Raise(val minAmount: Double, val maxAmount: Double?) : ActionOption
                     }
                 }
 
+                @Serializable
                 data class DealCards(
                     override val playerId: Int,
                     val cards: List<Card>,
                 ) : PlayerAction
 
+                @Serializable
                 data class MuckCards(
                     override val playerId: Int,
                     val cards: List<Card>,
                 ) : PlayerAction
 
+                @Serializable
                 data class ShowCards(
                     override val playerId: Int,
                     val cards: List<Card>,
                 ) : PlayerAction
 
+                @Serializable
                 data class PostAnte(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class PostSmallBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class PostBigBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class PostStraddle(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class PostDeadBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class PostExtraBlind(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class Fold(
                     override val playerId: Int,
                 ) : PlayerAction
 
+                @Serializable
                 data class Check(
                     override val playerId: Int,
                 ) : PlayerAction
 
+                @Serializable
                 data class Bet(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class Raise(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class Call(
                     override val playerId: Int,
                     val amount: Double,
                     val isAllIn: Boolean,
                 ) : PlayerAction
 
+                @Serializable
                 data class AddChips(
                     override val playerId: Int,
                     val amount: Double,
                 ) : PlayerAction
 
+                @Serializable
                 data class SitDown(
                     override val playerId: Int,
                     val playerName: String,
@@ -197,18 +243,21 @@ data class Table(
                     val stack: Double,
                 ) : PlayerAction
 
+                @Serializable
                 data class StandUp(
                     override val playerId: Int,
                 ) : PlayerAction
             }
 
 
+            @Serializable
             data class DealCommunityCards(
                 val cards: List<Card>,
             ) : Action
         }
     }
 
+    @Serializable
     data class Card(
         val suit: Suit,
         val rank: Int,
@@ -221,12 +270,14 @@ data class Table(
         }
     }
 
+    @Serializable
     data class Pot(
         val number: Int,
         val amount: Double,
         val jackpot: Double,
         val playerWins: List<PlayerWin>,
     ) {
+        @Serializable
         data class PlayerWin(
             val playerId: Int,
             val winAmount: Double,

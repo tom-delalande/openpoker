@@ -1,15 +1,21 @@
+@file:UseSerializers(UUIDSerializer::class)
+
 package domain.tournament
 
-import domain.model.Table
+import common.UUIDSerializer
 import java.util.UUID
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 
 interface CashGameRepository {
     fun get(id: UUID): CashGame?
     fun get(): List<CashGame>
-
     fun save(id: UUID, game: CashGame)
 
+    fun createPlayer(playerId: Int, player: Player)
+    fun getPlayer(playerId: Int): Player
 
+    @Serializable
     data class CashGame(
         val id: UUID = UUID.randomUUID(),
         val tableId: UUID = UUID.randomUUID(),
@@ -23,6 +29,7 @@ interface CashGameRepository {
         Finished,
     }
 
+    @Serializable
     data class Player(
         val id: Int,
         val name: String,

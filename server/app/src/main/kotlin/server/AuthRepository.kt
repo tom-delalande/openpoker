@@ -1,11 +1,19 @@
+@file:UseSerializers(UUIDSerializer::class)
+
 package server
 
-interface AuthRepository {
-    fun saveToken(token: String, playerId: Int, playerName: String)
-    fun getPlayer(token: String): PlayerInfo?
+import common.UUIDSerializer
+import java.util.UUID
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 
+interface AuthRepository {
+    fun saveToken(token: UUID, playerInfo: PlayerInfo)
+    fun getPlayer(token: UUID): PlayerInfo?
+
+    @Serializable
     data class PlayerInfo(
         val playerId: Int,
-        val playerName: String
+        val playerName: String,
     )
 }

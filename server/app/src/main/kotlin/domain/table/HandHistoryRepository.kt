@@ -5,5 +5,5 @@ import domain.model.Table
 import java.util.UUID
 
 interface HandHistoryRepository {
-    fun saveHand(id: UUID, hand: Table)
+    fun saveHand(tableId: UUID, hand: Table)
 }

@@ -49,11 +49,12 @@ export function isRedSuit(suit: string): boolean {
 }
 
 export function formatAmount(amount: number): string {
+  const chip = '🪙';
   if (amount >= 1000000) {
-    return `$${(amount / 1000000).toFixed(1)}M`;
+    return `${chip}${(amount / 1000000).toFixed(1)}M`;
   }
   if (amount >= 1000) {
-    return `$${(amount / 1000).toFixed(1)}K`;
+    return `${chip}${(amount / 1000).toFixed(1)}K`;
   }
-  return `$${amount.toFixed(0)}`;
+  return `${chip}${amount.toFixed(0)}`;
 }

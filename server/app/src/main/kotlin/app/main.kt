@@ -4,6 +4,10 @@ import data.inmemory.InMemoryActiveTableStateRepository
 import data.inmemory.InMemoryAuthRepository
 import data.inmemory.InMemoryCashGameRepository
 import data.inmemory.InMemoryHandHistoryRepository
+import data.postgres.PostgresAuthRepository
+import data.postgres.PostgresCashGameRepository
+import data.postgres.PostgresHandHistoryRepository
+import data.redis.RedisActiveTableRepository
 import domain.table.Socket
 import domain.table.TableService
 import domain.tournament.CashGameService
@@ -27,7 +31,11 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import org.flywaydb.core.Flyway
+import org.postgresql.ds.PGSimpleDataSource
 import org.slf4j.LoggerFactory
+import org.springframework.jdbc.core.simple.JdbcClient
+import redis.clients.jedis.RedisClient
 import server.AuthRepository
 import server.authEndpoints
 import server.gameEndpoints
@@ -38,10 +46,30 @@ val logger = LoggerFactory.getLogger("Main")
 
 @OptIn(ExperimentalSerializationApi::class)
 fun main() {
+    val dataSource = PGSimpleDataSource().apply {
+        user = System.getenv("POSTGRES_USER")
+        password = System.getenv("POSTGRES_PASSWORD")
+        setUrl(System.getenv("POSTGRES_URL"))
+    }
+
+    Flyway.configure()
+        .locations("filesystem:./db/migrations")
+        .dataSource(dataSource)
+        .load()
+        .migrate()
+
+    val jdbcClient = JdbcClient.create(dataSource)
+
+    val redisClient = RedisClient.create(
+        System.getenv("REDIS_HOST"),
+        System.getenv("REDIS_PORT")!!.toInt(),
+    )
+
+//    val activeTableStateRepository = RedisActiveTableRepository(redisClient)
     val activeTableStateRepository = InMemoryActiveTableStateRepository()
-    val handHistoryRepository = InMemoryHandHistoryRepository()
-    val cashGameRepository = InMemoryCashGameRepository()
-    val authRepository = InMemoryAuthRepository()
+    val handHistoryRepository = PostgresHandHistoryRepository(jdbcClient)
+    val cashGameRepository = PostgresCashGameRepository(jdbcClient)
+    val authRepository = PostgresAuthRepository(jdbcClient)
 
     val websockets = ConcurrentHashMap<UUID, MutableSharedFlow<HandEvent>>()
     val tableService = TableService(activeTableStateRepository, handHistoryRepository, websockets)

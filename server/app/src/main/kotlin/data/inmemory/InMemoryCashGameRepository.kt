@@ -18,4 +18,12 @@ class InMemoryCashGameRepository : CashGameRepository {
     override fun save(id: UUID, game: CashGameRepository.CashGame) {
         cashGames[id] = game
     }
+
+    override fun createPlayer(playerId: Int, player: CashGameRepository.Player) {
+        TODO("Not yet implemented")
+    }
+
+    override fun getPlayer(playerId: Int): CashGameRepository.Player {
+        TODO("Not yet implemented")
+    }
 }

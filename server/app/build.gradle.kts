@@ -63,6 +63,9 @@ dependencies {
 
     implementation("redis.clients:jedis:7.4.1")
     implementation("org.postgresql:postgresql:42.7.10")
+    implementation("org.springframework:spring-jdbc:7.0.6")
+    implementation("org.flywaydb:flyway-core:12.3.0")
+    implementation("org.flywaydb:flyway-database-postgresql:12.3.0")
 
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.1.0-M1")

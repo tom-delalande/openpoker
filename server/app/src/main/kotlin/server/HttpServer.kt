@@ -27,14 +27,14 @@ import server.models.PlayerAction
 
 private val json = Json
 
-fun Route.authEndpoints(authRepository: AuthRepository, idGenerator: () -> Int = { Random.nextInt() }) {
+fun Route.authEndpoints(authRepository: AuthRepository, idGenerator: () -> Int = { UUID.randomUUID().hashCode() }) {
     route("/auth") {
         post("/login/{name}") {
             val name = call.parameters["name"] ?: throw IllegalStateException()
             val playerId = idGenerator()
-            val token = UUID.randomUUID().toString()
-            authRepository.saveToken(token, playerId, name)
-            call.respond(AuthResponse(token, playerId))
+            val token = UUID.randomUUID()
+            authRepository.saveToken(token, AuthRepository.PlayerInfo(playerId, name))
+            call.respond(AuthResponse(token.toString(), playerId))
         }
     }
 }
@@ -42,7 +42,7 @@ fun Route.authEndpoints(authRepository: AuthRepository, idGenerator: () -> Int =
 fun Route.gameEndpoints(gameService: CashGameService, authRepository: AuthRepository) {
     route("/game") {
         post("/join") {
-            val token = call.request.queryParameters["token"] ?: throw IllegalStateException()
+            val token = call.request.queryParameters["token"]?.let { UUID.fromString(it) } ?: throw IllegalStateException()
             val player = authRepository.getPlayer(token) ?: throw IllegalStateException()
             val tableId = gameService.createOrJoin(player.playerId, player.playerName)
             call.respond(tableId.toString())
@@ -60,7 +60,7 @@ fun Route.tableEndpoints(
         webSocket("/ws/table/{tableId}/token/{token}") {
             val sessionId = UUID.randomUUID()
             val tableId = call.parameters["tableId"]?.let { UUID.fromString(it) } ?: throw IllegalStateException()
-            val token = call.parameters["token"] ?: throw IllegalStateException()
+            val token = call.parameters["token"]?.let { UUID.fromString(it) } ?: throw IllegalStateException()
             val messageResponseFlow = MutableSharedFlow<HandEvent>()
             val sharedFlow = messageResponseFlow.asSharedFlow()
 

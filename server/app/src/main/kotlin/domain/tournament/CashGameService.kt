@@ -1,8 +1,6 @@
 package domain.tournament
 
-import domain.model.Table
 import domain.table.TableService
-import domain.table.createTable
 import java.util.UUID
 
 class CashGameService(
