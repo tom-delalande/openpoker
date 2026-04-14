@@ -8,6 +8,7 @@ import domain.table.Socket
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import redis.clients.jedis.RedisClient
+import redis.clients.jedis.params.SetParams
 
 class RedisActiveTableRepository(
     private val redisClient: RedisClient,
@@ -16,6 +17,9 @@ class RedisActiveTableRepository(
     companion object {
         private const val TABLE_KEY_PREFIX = "active_table:"
         private const val SESSION_KEY_PREFIX = "session:"
+        private const val LOCK_KEY = "openpoker_table_lock"
+        private const val LOCK_EXPIRY_SECONDS = 30L
+        private const val LOCK_RETRY_INTERVAL_MS = 50L
     }
 
     private val json = Json
@@ -23,38 +27,120 @@ class RedisActiveTableRepository(
     private fun tableKey(id: UUID) = "$TABLE_KEY_PREFIX$id"
     private fun sessionKey(sessionId: UUID) = "$SESSION_KEY_PREFIX$sessionId"
 
-    override fun getActiveTables(): List<ActiveTable> {
-        val keys = redisClient.keys("$TABLE_KEY_PREFIX*")
-        return keys.mapNotNull { key ->
+    private fun acquireLock(): String? {
+        val lockValue = UUID.randomUUID().toString()
+        val params = SetParams().nx().ex(LOCK_EXPIRY_SECONDS)
+        while (true) {
             try {
-                json.decodeFromString<ActiveTable>(redisClient.get(key)!!)
+                val result = redisClient.set(LOCK_KEY, lockValue, params)
+                if (result != null) {
+                    return lockValue
+                }
             } catch (e: Exception) {
-                logger.error("Failed to deserialize ActiveTable from key $key", e)
-                null
+                // Lock acquisition failed, retry
             }
+            Thread.sleep(LOCK_RETRY_INTERVAL_MS)
+        }
+    }
+
+    private fun releaseLock(lockValue: String) {
+        try {
+            val script = """
+                if redis.call("get", KEYS[1]) == ARGV[1] then
+                    return redis.call("del", KEYS[1])
+                else
+                    return 0
+                end
+            """.trimIndent()
+            redisClient.eval(script, 1, LOCK_KEY, lockValue)
+        } catch (e: Exception) {
+            logger.error("Failed to release lock", e)
+        }
+    }
+
+    override fun getActiveTables(): List<ActiveTable> {
+        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        return try {
+            val keys = redisClient.keys("$TABLE_KEY_PREFIX*")
+            keys.mapNotNull { key ->
+                try {
+                    json.decodeFromString<ActiveTable>(redisClient.get(key)!!)
+                } catch (e: Exception) {
+                    logger.error("Failed to deserialize ActiveTable from key $key", e)
+                    null
+                }
+            }
+        } finally {
+            releaseLock(lockValue)
+        }
+    }
+
+    override suspend fun performedLockedFunctionOnTables(work: suspend (List<ActiveTable>) -> Unit) {
+        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        try {
+            val keys = redisClient.keys("$TABLE_KEY_PREFIX*")
+            val tables = keys.mapNotNull { key ->
+                try {
+                    json.decodeFromString<ActiveTable>(redisClient.get(key)!!)
+                } catch (e: Exception) {
+                    logger.error("Failed to deserialize ActiveTable from key $key", e)
+                    null
+                }
+            }
+            work(tables)
+        } finally {
+            releaseLock(lockValue)
         }
     }
 
     override fun get(id: UUID): ActiveTable? {
-        val data = redisClient.get(tableKey(id)) ?: return null
+        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
         return try {
-            json.decodeFromString<ActiveTable>(data)
-        } catch (e: Exception) {
-            logger.error("Failed to deserialize ActiveTable for id $id", e)
-            null
+            val data = redisClient.get(tableKey(id))
+            if (data == null) {
+                null
+            } else {
+                try {
+                    json.decodeFromString<ActiveTable>(data)
+                } catch (e: Exception) {
+                    logger.error("Failed to deserialize ActiveTable for id $id", e)
+                    null
+                }
+            }
+        } finally {
+            releaseLock(lockValue)
         }
     }
 
     override fun getSession(sessionId: UUID): ActiveTable? {
-        val tableIdStr = redisClient.get(sessionKey(sessionId)) ?: return null
-        val tableId = try {
-            UUID.fromString(tableIdStr)
-        } catch (e: Exception) {
-            logger.error("Invalid tableId in session mapping: $tableIdStr", e)
-            redisClient.del(sessionKey(sessionId))
-            return null
+        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        return try {
+            val tableIdStr = redisClient.get(sessionKey(sessionId)) ?: return null
+            val tableId = try {
+                UUID.fromString(tableIdStr)
+            } catch (e: Exception) {
+                logger.error("Invalid tableId in session mapping: $tableIdStr", e)
+                redisClient.del(sessionKey(sessionId))
+                return null
+            }
+            getByKey(tableId)
+        } finally {
+            releaseLock(lockValue)
         }
-        return get(tableId)
+    }
+
+    private fun getByKey(id: UUID): ActiveTable? {
+        val data = redisClient.get(tableKey(id))
+        if (data == null) {
+            return null
+        } else {
+            return try {
+                json.decodeFromString<ActiveTable>(data)
+            } catch (e: Exception) {
+                logger.error("Failed to deserialize ActiveTable for id $id", e)
+                null
+            }
+        }
     }
 
     override fun set(
@@ -62,21 +148,29 @@ class RedisActiveTableRepository(
         table: Table,
         finished: Boolean,
         playerSockets: List<Socket>,
+        withLock: Boolean,
     ) {
-        val activeTable = ActiveTable(id, table, playerSockets, finished)
+        val lockValue = if (withLock) {
+            acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        } else null
         try {
-            redisClient.set(tableKey(id), json.encodeToString(activeTable))
-            if (!finished) {
-                playerSockets.forEach { socket ->
-                    redisClient.set(sessionKey(socket.sessionId), id.toString())
+            val activeTable = ActiveTable(id, table, playerSockets, finished)
+            try {
+                redisClient.set(tableKey(id), json.encodeToString(activeTable))
+                if (!finished) {
+                    playerSockets.forEach { socket ->
+                        redisClient.set(sessionKey(socket.sessionId), id.toString())
+                    }
+                } else {
+                    playerSockets.forEach { socket ->
+                        redisClient.del(sessionKey(socket.sessionId))
+                    }
                 }
-            } else {
-                playerSockets.forEach { socket ->
-                    redisClient.del(sessionKey(socket.sessionId))
-                }
+            } catch (e: Exception) {
+                logger.error("Failed to persist ActiveTable for id $id", e)
             }
-        } catch (e: Exception) {
-            logger.error("Failed to persist ActiveTable for id $id", e)
+        } finally {
+            lockValue?.let { releaseLock(it) }
         }
     }
 }

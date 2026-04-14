@@ -162,6 +162,7 @@ function TableContent() {
   const isMyTurn = currentPlayerId === playerId && actionOptions !== null;
 
   const handleLeaveTable = useCallback(() => {
+    tableSocket.send({ kind: 'StandUp', value: { type: 'StandUp' } });
     tableSocket.disconnect();
     localStorage.removeItem('tableId');
     setTableId(null);

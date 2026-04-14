@@ -25,7 +25,7 @@ internal val wellKnownTimestamp = Instant.parse("2026-04-06T11:53:19.312063Z")
 fun givenWellKnownTournamentTable(work: TableConfig.() -> Unit): Table {
     val config = TableConfig()
     work(config)
-    val players = config.players.map { domain.tournament.CashGameRepository.Player(it.id, it.name, it.startingStack) }
+    val players = config.players.map { CashGameRepository.Player(it.id, it.name, it.startingStack) }
     return createTable(
         players = players,
         seed = config.seed,
@@ -34,7 +34,6 @@ fun givenWellKnownTournamentTable(work: TableConfig.() -> Unit): Table {
     )
         .copy(
             dealerSeat = config.dealerSeat,
-            rounds = config.rounds,
         )
 }
 

@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/auth/login/{name}": {
+    "/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -30,6 +30,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["GameService_join"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/player": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GameService_player"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -430,6 +446,13 @@ export interface components {
             /** Format: int32 */
             playerId: number;
         };
+        PlayerInfo: {
+            /** Format: int32 */
+            playerId: number;
+            name: string;
+            /** Format: double */
+            stack: number;
+        };
         PlayerPostedAnte: {
             /** @enum {string} */
             type: "PlayerPostedAnte";
@@ -566,11 +589,11 @@ export type $defs = Record<string, never>;
 export interface operations {
     AuthService_login: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
+            query: {
                 name: string;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -604,6 +627,28 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+        };
+    };
+    GameService_player: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerInfo"];
                 };
             };
         };

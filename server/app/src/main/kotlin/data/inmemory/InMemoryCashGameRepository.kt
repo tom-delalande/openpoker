@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class InMemoryCashGameRepository : CashGameRepository {
     val cashGames: MutableMap<UUID, CashGameRepository.CashGame> = ConcurrentHashMap()
+    val cashGamePlayers: MutableList<CashGameRepository.Player> = mutableListOf()
 
     override fun get(id: UUID): CashGameRepository.CashGame? {
         return cashGames[id]
@@ -20,10 +21,10 @@ class InMemoryCashGameRepository : CashGameRepository {
     }
 
     override fun createPlayer(playerId: Int, player: CashGameRepository.Player) {
-        TODO("Not yet implemented")
+        cashGamePlayers.add(player)
     }
 
     override fun getPlayer(playerId: Int): CashGameRepository.Player {
-        TODO("Not yet implemented")
+        return cashGamePlayers.first { it.id == playerId }
     }
 }

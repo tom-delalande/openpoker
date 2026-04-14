@@ -14,6 +14,5 @@ interface AuthRepository {
     @Serializable
     data class PlayerInfo(
         val playerId: Int,
-        val playerName: String,
     )
 }

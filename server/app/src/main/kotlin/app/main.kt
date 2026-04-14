@@ -8,8 +8,11 @@ import data.postgres.PostgresAuthRepository
 import data.postgres.PostgresCashGameRepository
 import data.postgres.PostgresHandHistoryRepository
 import data.redis.RedisActiveTableRepository
+import domain.table.ActiveTableStateRepository
+import domain.table.HandHistoryRepository
 import domain.table.Socket
 import domain.table.TableService
+import domain.tournament.CashGameRepository
 import domain.tournament.CashGameService
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
@@ -46,33 +49,42 @@ val logger = LoggerFactory.getLogger("Main")
 
 @OptIn(ExperimentalSerializationApi::class)
 fun main() {
-    val dataSource = PGSimpleDataSource().apply {
-        user = System.getenv("POSTGRES_USER")
-        password = System.getenv("POSTGRES_PASSWORD")
-        setUrl(System.getenv("POSTGRES_URL"))
+    val useInMemory = false
+
+    val (activeTableRepository, handHistoryRepository, cashGameRepository, authRepository) = if (useInMemory) {
+        Repositories(
+            InMemoryActiveTableStateRepository(), InMemoryHandHistoryRepository(),
+            InMemoryCashGameRepository(), InMemoryAuthRepository()
+        )
+    } else {
+        val dataSource = PGSimpleDataSource().apply {
+            user = System.getenv("POSTGRES_USER")
+            password = System.getenv("POSTGRES_PASSWORD")
+            setUrl(System.getenv("POSTGRES_URL"))
+        }
+
+        Flyway.configure()
+            .locations("filesystem:./db/migrations")
+            .dataSource(dataSource)
+            .load()
+            .migrate()
+
+        val jdbcClient = JdbcClient.create(dataSource)
+
+        val redisClient = RedisClient.create(
+            System.getenv("REDIS_HOST"),
+            System.getenv("REDIS_PORT")!!.toInt(),
+        )
+        Repositories(
+            RedisActiveTableRepository(redisClient),
+            PostgresHandHistoryRepository(jdbcClient),
+            PostgresCashGameRepository(jdbcClient),
+            PostgresAuthRepository(jdbcClient)
+        )
+
     }
-
-    Flyway.configure()
-        .locations("filesystem:./db/migrations")
-        .dataSource(dataSource)
-        .load()
-        .migrate()
-
-    val jdbcClient = JdbcClient.create(dataSource)
-
-    val redisClient = RedisClient.create(
-        System.getenv("REDIS_HOST"),
-        System.getenv("REDIS_PORT")!!.toInt(),
-    )
-
-//    val activeTableStateRepository = RedisActiveTableRepository(redisClient)
-    val activeTableStateRepository = InMemoryActiveTableStateRepository()
-    val handHistoryRepository = PostgresHandHistoryRepository(jdbcClient)
-    val cashGameRepository = PostgresCashGameRepository(jdbcClient)
-    val authRepository = PostgresAuthRepository(jdbcClient)
-
     val websockets = ConcurrentHashMap<UUID, MutableSharedFlow<HandEvent>>()
-    val tableService = TableService(activeTableStateRepository, handHistoryRepository, websockets)
+    val tableService = TableService(activeTableRepository, handHistoryRepository, websockets)
     val gameService = CashGameService(cashGameRepository, tableService)
 
     CoroutineScope(Dispatchers.Default).launch {
@@ -113,8 +125,15 @@ fun Application.module(
     }
 
     routing {
-        authEndpoints(authRepository)
+        authEndpoints(authRepository, gameService)
         gameEndpoints(gameService, authRepository)
         tableEndpoints(websockets, authRepository, tableService)
     }
 }
+
+data class Repositories(
+    val activeTableStateRepository: ActiveTableStateRepository,
+    val handHistoryRepository: HandHistoryRepository,
+    val cashGameRepository: CashGameRepository,
+    val authRepository: AuthRepository,
+)

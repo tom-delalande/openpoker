@@ -1,10 +1,12 @@
-- Open Hand History
-- Postgres
-- Redis
 - Split pots
-- Dead blinds
+
 - Better matchmaking
+  - Continuous tables
+  - Force blinds depending on hands since last big blind
+  - Private games
 - Add some delay to the showdowns and cards dealt
 
-- Two sessions are created per player
-- I think redis only creates the table properly when I have a breakpoint
+- What happens if someone stands up mid-hand
+- Delete finished table from Redis
+
+- The same player can join the same table twice and break everything

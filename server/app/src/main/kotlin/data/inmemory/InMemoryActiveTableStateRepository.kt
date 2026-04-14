@@ -15,6 +15,10 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
         return tables.values.toList()
     }
 
+    override suspend fun performedLockedFunctionOnTables(work: suspend (List<ActiveTable>) -> Unit) {
+        work(getActiveTables())
+    }
+
     override fun get(id: UUID): ActiveTable? {
         return tables[id]
     }
@@ -28,6 +32,7 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
         table: Table,
         finished: Boolean,
         playerSockets: List<Socket>,
+        withLock: Boolean,
     ) {
         tables[id] = ActiveTable(id, table, playerSockets, finished)
     }

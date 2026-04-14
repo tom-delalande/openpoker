@@ -229,14 +229,23 @@ model AuthResponse {
   playerId: int32;
 }
 
+model PlayerInfo {
+  playerId: int32;
+  name: string;
+  stack: float64;
+}
+
 @route("/auth")
 interface AuthService {
-  @route("/login/{name}")
+  @route("/login")
   @post
-  login(@path name: string): AuthResponse;
+  login(@query name: string): AuthResponse;
 }
 @route("/game")
 interface GameService {
+  @route("/player")
+  @get
+  player(@query token: string): PlayerInfo;
   @route("/join")
   @post
   join(@query token: string): string;
@@ -247,4 +256,3 @@ interface TableService {
   @route("/ws/table/{tableId}/token/{token}")
   connect(@path tableId: string, @path token: string): HandEvent | HandEvent[];
 }
-

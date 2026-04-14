@@ -26,12 +26,11 @@ import server.PlayerActionRequest
 class TableLogicTest {
     @Test
     fun `given table with set seed and 3 players, when dealing initial cards, then 6 cards are dealt`() {
-        val initialTable = givenWellKnownTournamentTable {
+        val table = givenWellKnownTournamentTable {
             withSeed(1)
             withDefaultPlayers(3)
         }
 
-        val table = initialTable.dealInitialCards()
 
         assertEquals(1, table.rounds.size)
         assertEquals(
@@ -375,27 +374,27 @@ class TableLogicTest {
         assertEquals(2, table.livePlayers[2].seat)
         assertEquals(3, table.livePlayers[2].playerId)
 
+
         // Small Blind
 
+        var actionIndex = 8
         assertEquals(
             PostSmallBlind(
                 playerId = 2,
                 amount = 5.0,
                 isAllIn = false,
             ),
-            table.rounds[0].actions[0],
+            table.rounds[0].actions[actionIndex++],
         )
 
         // Big Blind
-
-
         assertEquals(
             PostBigBlind(
                 playerId = 3,
                 amount = 10.0,
                 isAllIn = false,
             ),
-            table.rounds[0].actions[1],
+            table.rounds[0].actions[actionIndex++],
         )
 
         // Private Cards
@@ -406,7 +405,7 @@ class TableLogicTest {
                 playerId = 2,
                 cards = listOf("11d".c(), "1s".c()),
             ),
-            table.rounds[0].actions[2],
+            table.rounds[0].actions[actionIndex++],
         )
 
         assertEquals(
@@ -414,7 +413,7 @@ class TableLogicTest {
                 playerId = 3,
                 cards = listOf("1h".c(), "2d".c()),
             ),
-            table.rounds[0].actions[3],
+            table.rounds[0].actions[actionIndex++],
         )
 
         assertEquals(
@@ -422,7 +421,7 @@ class TableLogicTest {
                 playerId = 1,
                 cards = listOf("10s".c(), "12c".c()),
             ),
-            table.rounds[0].actions[4],
+            table.rounds[0].actions[actionIndex++],
         )
 
         // UTG
@@ -436,7 +435,7 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[0].actions[5],
+            table.rounds[0].actions[actionIndex++],
         )
 
         table = table.processPlayerAction(
@@ -451,7 +450,7 @@ class TableLogicTest {
                 amount = 10.0,
                 isAllIn = false,
             ),
-            table.rounds[0].actions[6],
+            table.rounds[0].actions[actionIndex++],
         )
 
         // Small Blind calls BB amount
@@ -466,7 +465,7 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[0].actions[7],
+            table.rounds[0].actions[actionIndex++],
         )
 
         table = table.processPlayerAction(
@@ -481,7 +480,7 @@ class TableLogicTest {
                 amount = 5.0,
                 isAllIn = false,
             ),
-            table.rounds[0].actions[8],
+            table.rounds[0].actions[actionIndex++],
         )
 
         // Big blind checks
@@ -497,21 +496,22 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[0].actions[9],
+            table.rounds[0].actions[actionIndex++],
         )
 
         table = table.processPlayerAction(playerId = 3, action = PlayerActionRequest.Check(playerId = 3), now = now)
-        assertEquals(Check(playerId = 3), table.rounds[0].actions[10])
+        assertEquals(Check(playerId = 3), table.rounds[0].actions[actionIndex++])
 
         // -- FLOP --
         // Community Cards Dealt
         table = table.processTable(now, seedGenerator)
-        assertEquals(11, table.rounds[0].actions.size)
+        assertEquals(actionIndex, table.rounds[0].actions.size)
+        actionIndex = 1
         assertEquals(
             Table.Round.Action.DealCommunityCards(
                 cards = listOf("8d".c(), "4s".c(), "11c".c())
             ),
-            table.rounds[1].actions[0],
+            table.rounds[1].actions[actionIndex++],
         )
 
         // Small Blind Bets
@@ -525,10 +525,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[1].actions[1],
+            table.rounds[1].actions[actionIndex++],
         )
         table = table.processPlayerAction(playerId = 2, action = PlayerActionRequest.Check(playerId = 2), now = now)
-        assertEquals(Check(playerId = 2), table.rounds[1].actions[2])
+        assertEquals(Check(playerId = 2), table.rounds[1].actions[actionIndex++])
 
         // Big Blind Bets
         table = table.processTable(now, seedGenerator)
@@ -542,10 +542,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[1].actions[3],
+            table.rounds[1].actions[actionIndex++],
         )
         table = table.processPlayerAction(3, PlayerActionRequest.Bet(3, 10.0), now)
-        assertEquals(Bet(3, 10.0, false), table.rounds[1].actions[4])
+        assertEquals(Bet(3, 10.0, false), table.rounds[1].actions[actionIndex++])
 
         // Dealer Raises
         table = table.processTable(now, seedGenerator)
@@ -559,10 +559,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[1].actions[5],
+            table.rounds[1].actions[actionIndex++],
         )
         table = table.processPlayerAction(1, PlayerActionRequest.Raise(1, 20.0), now)
-        assertEquals(Raise(1, 20.0, false), table.rounds[1].actions[6])
+        assertEquals(Raise(1, 20.0, false), table.rounds[1].actions[actionIndex++])
 
         // Small Blind Calls
         table = table.processTable(now, seedGenerator)
@@ -576,10 +576,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[1].actions[7],
+            table.rounds[1].actions[actionIndex++],
         )
         table = table.processPlayerAction(2, PlayerActionRequest.Call(2, 20.0), now)
-        assertEquals(Call(2, 20.0, false), table.rounds[1].actions[8])
+        assertEquals(Call(2, 20.0, false), table.rounds[1].actions[actionIndex++])
 
         // Big Blind Calls
         table = table.processTable(now, seedGenerator)
@@ -593,20 +593,22 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[1].actions[9],
+            table.rounds[1].actions[actionIndex++],
         )
         table = table.processPlayerAction(3, PlayerActionRequest.Call(3, 10.0), now)
-        assertEquals(Call(3, 10.0, false), table.rounds[1].actions[10])
+        assertEquals(Call(3, 10.0, false), table.rounds[1].actions[actionIndex++])
+
 
         // -- TURN --
         // Community Card Dealt
+        actionIndex = 1
         table = table.processTable(now, seedGenerator)
-        assertEquals(11, table.rounds[1].actions.size)
+        assertEquals(12, table.rounds[1].actions.size)
         assertEquals(
             Table.Round.Action.DealCommunityCards(
                 cards = listOf("3d".c())
             ),
-            table.rounds[2].actions[0],
+            table.rounds[2].actions[actionIndex++],
         )
         // Small Blind Checks
         assertEquals(
@@ -619,10 +621,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[2].actions[1],
+            table.rounds[2].actions[actionIndex++],
         )
         table = table.processPlayerAction(2, PlayerActionRequest.Check(2), now)
-        assertEquals(Check(2), table.rounds[2].actions[2])
+        assertEquals(Check(2), table.rounds[2].actions[actionIndex++])
 
         // Big Blind Bets
         table = table.processTable(now, seedGenerator)
@@ -636,10 +638,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[2].actions[3],
+            table.rounds[2].actions[actionIndex++],
         )
         table = table.processPlayerAction(3, PlayerActionRequest.Bet(3, amount = 10.0), now)
-        assertEquals(Bet(3, 10.0, false), table.rounds[2].actions[4])
+        assertEquals(Bet(3, 10.0, false), table.rounds[2].actions[actionIndex++])
 
         // Dealer Folds
         table = table.processTable(now, seedGenerator)
@@ -653,10 +655,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[2].actions[5],
+            table.rounds[2].actions[actionIndex++],
         )
         table = table.processPlayerAction(1, PlayerActionRequest.Fold(1), now)
-        assertEquals(Fold(1), table.rounds[2].actions[6])
+        assertEquals(Fold(1), table.rounds[2].actions[actionIndex++])
 
         // Small Blind Calls
         table = table.processTable(now, seedGenerator)
@@ -670,20 +672,21 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[2].actions[7],
+            table.rounds[2].actions[actionIndex++],
         )
         table = table.processPlayerAction(2, PlayerActionRequest.Call(2, amount = 10.0), now)
-        assertEquals(Call(2, amount = 10.0, false), table.rounds[2].actions[8])
+        assertEquals(Call(2, amount = 10.0, false), table.rounds[2].actions[actionIndex++])
 
         // -- River --
         // Community Card Dealt
+        actionIndex = 1
         table = table.processTable(now, seedGenerator)
-        assertEquals(9, table.rounds[2].actions.size)
+        assertEquals(10, table.rounds[2].actions.size)
         assertEquals(
             Table.Round.Action.DealCommunityCards(
                 cards = listOf("6s".c())
             ),
-            table.rounds[3].actions[0],
+            table.rounds[3].actions[actionIndex++],
         )
 
         assertEquals(
@@ -696,10 +699,10 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[3].actions[1],
+            table.rounds[3].actions[actionIndex++],
         )
         table = table.processPlayerAction(2, PlayerActionRequest.Check(2), now)
-        assertEquals(Check(2), table.rounds[3].actions[2])
+        assertEquals(Check(2), table.rounds[3].actions[actionIndex++])
 
         table = table.processTable(now, seedGenerator)
         assertEquals(
@@ -712,28 +715,29 @@ class TableLogicTest {
                 ),
                 expiry = now.plusSeconds(10)
             ),
-            table.rounds[3].actions[3],
+            table.rounds[3].actions[actionIndex++],
         )
         table = table.processPlayerAction(3, PlayerActionRequest.Check(3), now)
-        assertEquals(Check(3), table.rounds[3].actions[4])
+        assertEquals(Check(3), table.rounds[3].actions[actionIndex++])
 
         // -- Showdown --
         // Showdown
+        actionIndex = 0
         table = table.processTable(now, seedGenerator)
-        assertEquals(5, table.rounds[3].actions.size)
+        assertEquals(6, table.rounds[3].actions.size)
         assertEquals(
             ShowCards(
                 playerId = 3,
                 cards = listOf("1h".c(), "2d".c())
             ),
-            table.rounds[4].actions[0],
+            table.rounds[4].actions[actionIndex++],
         )
         assertEquals(
             ShowCards(
                 playerId = 2,
                 cards = listOf("11d".c(), "1s".c())
             ),
-            table.rounds[4].actions[1],
+            table.rounds[4].actions[actionIndex++],
         )
 
         // Small Blind Wins
@@ -964,9 +968,9 @@ class TableLogicTest {
         )
 
         val nextHand = table.startNextHand(now = now)
-        assertEquals(990.0, nextHand.players[0].stack)
-        assertEquals(990.0, nextHand.players[1].stack)
-        assertEquals(1020.0, nextHand.players[2].stack)
+        assertEquals(990.0, nextHand.livePlayers[0].stack)
+        assertEquals(990.0, nextHand.livePlayers[1].stack)
+        assertEquals(1020.0, nextHand.livePlayers[2].stack)
     }
 
     @Test

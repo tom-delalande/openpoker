@@ -40,10 +40,10 @@ fun Table.toOpenHandHistory() = OpenHandHistoryDocument(
         anteAmount = anteAmount,
         heroPlayerId = null,
         flags = null,
-        players = players.map { player ->
+        players = livePlayers.map { player ->
             Player(
                 name = player.name,
-                id = player.id,
+                id = player.playerId,
                 seat = player.seat,
                 startingStack = player.stack,
                 playerBounty = null,

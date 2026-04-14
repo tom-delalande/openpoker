@@ -5,11 +5,10 @@ package domain.table
 import app.logger
 import domain.model.Table
 import domain.tournament.CashGameRepository
+import domain.tournament.CashGameService
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.UUID
 import kotlin.random.Random
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toKotlinInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
@@ -94,25 +93,26 @@ class TableService(
     val sessions: Map<UUID, MutableSharedFlow<HandEvent>>,
 ) {
     suspend fun process(now: Instant = Instant.now(), seedGenerator: () -> Long = { Random.nextLong() }) {
-        val tables = activeRepository.getActiveTables()
-        tables.forEach { (tableId, table, sockets, finished) ->
-            val updated = table.processTable(now)
-            val events = updated.toEvents()
-            val updatedSockets = mutableListOf<Socket>()
-            for (playerSocket in sockets) {
-                if (playerSocket.currentHandId != tableId) continue
-                val playerEvents = events
-                    .drop(playerSocket.version)
-                    .prepareForPlayer(playerSocket.playerId)
+        activeRepository.performedLockedFunctionOnTables { tables ->
+            tables.map { (tableId, table, sockets, finished) ->
+                val updated = table.processTable(now)
+                val events = updated.toEvents()
+                val updatedSockets = mutableListOf<Socket>()
+                for (playerSocket in sockets) {
+                    if (playerSocket.currentHandId != tableId) continue
+                    val playerEvents = events
+                        .drop(playerSocket.version)
+                        .prepareForPlayer(playerSocket.playerId)
 
-                val session = sessions[playerSocket.sessionId] ?: return@forEach
-                for (event in playerEvents) {
-                    session.emit(event)
+                    val session = sessions[playerSocket.sessionId]
+                    for (event in playerEvents) {
+                        session?.emit(event)
+                    }
+                    updatedSockets.add(playerSocket.copy(version = events.size))
                 }
-                updatedSockets.add(playerSocket.copy(version = events.size))
-            }
 
-            saveTable(tableId, updated, finished, updatedSockets.toList(), now)
+                saveTable(tableId, updated, finished, updatedSockets.toList(), now)
+            }
         }
     }
 
@@ -126,6 +126,19 @@ class TableService(
                 table.table,
                 table.finished,
                 table.playerSockets + Socket(playerId, sessionId, tableId, 0),
+                now
+            )
+        }
+    }
+
+    suspend fun removeWebSocketConnection(tableId: UUID, sessionId: UUID, now: Instant) {
+        mutex.withLock {
+            val table = activeRepository.get(tableId) ?: throw IllegalStateException()
+            saveTable(
+                tableId,
+                table.table,
+                table.finished,
+                table.playerSockets.filterNot { it.sessionId == sessionId },
                 now
             )
         }
@@ -157,13 +170,15 @@ class TableService(
                     nextHandId,
                     nextHand,
                     false,
-                    playerSockets.map { it.copy(currentHandId = nextHandId, version = 0) })
-                activeRepository.set(id, table, true, playerSockets)
+                    playerSockets.map { it.copy(currentHandId = nextHandId, version = 0) },
+                    withLock = false
+                )
+                activeRepository.set(id, table, true, playerSockets, withLock = false)
             } else {
-                activeRepository.set(id, table, false, playerSockets)
+                activeRepository.set(id, table, false, playerSockets, withLock = false)
             }
         } else {
-            activeRepository.set(id, table, false, playerSockets)
+            activeRepository.set(id, table, false, playerSockets, withLock = false)
         }
     }
 
@@ -176,41 +191,27 @@ class TableService(
 
     @OptIn(ExperimentalSerializationApi::class)
     fun Table.toEvents(): List<HandEvent> = buildList {
-        players.forEachIndexed { index, player ->
-            add(
-                HandEventPlayerSatDown(
-                    value = PlayerSatDown(
-                        type = PlayerSatDownType.PLAYER_SAT_DOWN_EVENT,
-                        playerId = player.id,
-                        playerName = player.name,
-                        stack = player.stack,
-                        seat = index,
-                    )
-                )
-            )
-        }
         rounds.forEach { round ->
-            if (round.id == 0) {
-                add(
-                    HandEventHandStarted(
-                        value = HandStarted(
-                            type = HandStartedType.HAND_STARTED_EVENT,
-                            dealerButton = dealerSeat,
+            round.actions.mapNotNull { action ->
+                when (action) {
+                    is Table.Round.Action.HandStarted -> add(
+                        HandEventHandStarted(
+                            value = HandStarted(
+                                type = HandStartedType.HAND_STARTED_EVENT,
+                                dealerButton = dealerSeat,
+                            )
                         )
                     )
-                )
-            }
-            add(
-                HandEventRoundStarted(
-                    value = RoundStarted(
-                        type = RoundStartedType.ROUND_STARTED_EVENT,
-                        street = round.street.name
-                    )
-                )
-            )
 
-            round.actions.map { action ->
-                when (action) {
+                    is Table.Round.Action.RoundStarted -> add(
+                        HandEventRoundStarted(
+                            value = RoundStarted(
+                                type = RoundStartedType.ROUND_STARTED_EVENT,
+                                street = round.street.name
+                            )
+                        )
+                    )
+
                     is Table.Round.Action.DealCommunityCards -> add(
                         HandEventCommunityCardDealt(
                             value = CommunityCardDealt(
@@ -408,6 +409,8 @@ class TableService(
                             )
                         )
                     )
+
+                    is Table.Round.Action.HandEnded -> null
                 }
             }
         }
@@ -420,7 +423,7 @@ class TableService(
                         players = livePlayers.map { player ->
                             PlayerStack(
                                 playerId = player.playerId,
-                                stack = player.currentStack + pots.flatMap { it.playerWins }
+                                stack = player.stack + pots.flatMap { it.playerWins }
                                     .filter { it.playerId == player.playerId }
                                     .sumOf { it.winAmount },
                                 winner = pots.flatMap { it.playerWins }.any { it.playerId == player.playerId }

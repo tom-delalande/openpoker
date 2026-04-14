@@ -9,12 +9,12 @@ import domain.model.Table.Round.Action.PlayerAction.*
 import domain.model.shift
 import domain.tournament.CashGameRepository
 import java.util.UUID
+import kotlin.collections.listOf
 import kotlin.collections.map
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 import server.PlayerActionRequest
-import server.models.PlayerStoodUp
 
 const val DEFAULT_SMALL_BLIND_AMOUNT = 5.0
 const val DEFAULT_BIG_BLIND_AMOUNT = 10.0
@@ -41,16 +41,20 @@ fun createTable(
         smallBlindAmount = smallBlindAmount,
         bigBlindAmount = bigBlindAmount,
         anteAmount = anteAmount,
-        players = players.mapIndexed { index, player ->
-            Table.Player(
-                id = player.id,
-                name = player.name,
-                seat = index,
-                stack = player.stack,
-                isSittingOut = false,
+        rounds = listOf(
+            Round(
+                id = 0,
+                street = Round.Street.PreFlop,
+                actions = players.mapIndexed { index, it ->
+                    SitDown(
+                        playerId = it.id,
+                        playerName = it.name,
+                        seat = index,
+                        stack = it.stack,
+                    )
+                }
             )
-        },
-        rounds = listOf(),
+        ),
         pots = listOf(),
         seed = seed,
     )
@@ -58,64 +62,54 @@ fun createTable(
     return table
 }
 
-fun Table.addPlayer(player: CashGameRepository.Player) = copy(
-    players = players + Table.Player(
-        id = player.id,
-        name = player.name,
-        seat = players.size,
-        stack = player.stack,
-        isSittingOut = false,
-    ),
-)
-
-fun Table.dealInitialCards(): Table {
-    return copy(
-        rounds = listOf(
-            Round(
-                id = 0,
-                street = Round.Street.PreFlop,
-                actions = emptyList(),
-            )
-        )
-    ).dealCards()
+fun Table.addPlayer(player: CashGameRepository.Player): Table {
+    return if (livePlayers.any { it.playerId == player.id }) {
+        copy()
+    } else {
+        appendAction(SitDown(player.id, player.name, livePlayers.size, player.stack))
+    }
 }
 
 private fun Table.dealCards(): Table {
-    val cards = getCards(players.size * 2)
+    val cards = getCards(livePlayers.size * 2)
     val firstSeat = smallBlindPlayer.seat
-    val orderedPLayers = (firstSeat..<firstSeat + players.size).map { it % players.size }
+    val orderedPLayers = (firstSeat..<firstSeat + livePlayers.size).map { it % livePlayers.size }
     return orderedPLayers.fold(this) { table, seat ->
-        val player = players[seat]
+        val player = livePlayers[seat]
         table.appendAction(
             DealCards(
-                playerId = player.id,
+                playerId = player.playerId,
                 cards = cards.subList(2 * seat, 2 * seat + 2)
             )
         )
     }
 }
 
-fun Table.nextHandPlayers() = players
+fun Table.nextHandPlayers() = livePlayers
     .map { player ->
         player.copy(
             isSittingOut = false,
-            stack = livePlayers.first { it.playerId == player.id }.currentStack + pots.flatMap { it.playerWins }
-                .filter { it.playerId == player.id }
+            stack = player.stack + pots.flatMap { it.playerWins }
+                .filter { it.playerId == player.playerId }
                 .sumOf { it.winAmount }
         )
     }
-    .filter { player -> livePlayers.first { it.playerId == player.id }.currentStack > 0 }
+    .filter { player -> player.stack > 0 }
 
 fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLong() }): Table {
     if (isFinished) return this
 
-    if (rounds.isEmpty() && players.size >= 3) {
+    if (livePlayers.count { !it.isSittingOut } < 2) {
+        return finishHand(now)
+    }
+
+    if (!isStarted && livePlayers.size >= 3) {
         return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator(), now = now)
     }
 
     return when (val latestAction = currentRound?.actions?.lastOrNull()) {
         is RequestAction -> {
-            if (latestAction.expiry.isBefore(now)) {
+            if (latestAction.expiry.isBefore(now) || livePlayers.find { it.playerId == latestAction.playerId }?.isSittingOut == true) {
                 this
                     .timeoutCurrentActionRequest(latestAction)
                     .processPostAction(now)
@@ -137,10 +131,13 @@ fun Table.startNextHand(
     seed: Long = Random.nextLong(),
     now: Instant,
 ): Table {
+    if (nextHandPlayers().size <= 1) {
+        return copy()
+    }
     return copy(
         handId = UUID.randomUUID(),
         dealerSeat = dealerSeat,
-        players = nextHandPlayers(),
+        isStarted = true,
         startedAt = now,
         smallBlindAmount = smallBlindAmount,
         bigBlindAmount = bigBlindAmount,
@@ -151,23 +148,46 @@ fun Table.startNextHand(
                 id = 0,
                 street = Round.Street.PreFlop,
                 actions = listOf(
-                    PostSmallBlind(
-                        smallBlindPlayer.id,
-                        min(smallBlindAmount, smallBlindPlayer.stack),
-                        smallBlindAmount >= smallBlindPlayer.stack
+                    *rounds.first().actions.toTypedArray(),
+                    *nextHandPlayers().map {
+                        SitDown(
+                            playerId = it.playerId,
+                            playerName = it.name,
+                            stack = it.stack,
+                            seat = it.seat,
+                        )
+                    }.toTypedArray(),
+                    Round.Action.HandStarted,
+                    Round.Action.RoundStarted(
+                        id = 0,
+                        street = Round.Street.PreFlop,
                     ),
-                    PostBigBlind(
-                        bigBlindPlayer.id,
-                        min(bigBlindAmount, bigBlindPlayer.stack),
-                        bigBlindAmount >= bigBlindPlayer.stack
-                    )
                 )
             )
         ),
         pots = listOf(),
         seed = seed,
-    )
+    ).autoPostBlinds()
 }
+
+fun Table.autoPostBlinds() = copy(
+    rounds = rounds.map {
+        if (it.street == Round.Street.PreFlop) it.copy(
+            actions = it.actions + listOf(
+                PostSmallBlind(
+                    smallBlindPlayer.playerId,
+                    min(smallBlindAmount, smallBlindPlayer.stack),
+                    smallBlindAmount >= smallBlindPlayer.stack
+                ),
+                PostBigBlind(
+                    bigBlindPlayer.playerId,
+                    min(bigBlindAmount, bigBlindPlayer.stack),
+                    bigBlindAmount >= bigBlindPlayer.stack
+                )
+            )
+        ) else it
+    }
+)
 
 fun Table.processPostAction(now: Instant): Table = attemptFinishRound(now)
     .performDealerActions()
@@ -181,6 +201,11 @@ fun Table.performDealerActions(): Table {
 }
 
 fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: Instant): Table {
+    when (action) {
+        is PlayerActionRequest.StandUp -> return appendAction(StandUp(playerId))
+        else -> {}
+    }
+
     val lastAction = playerRoundActions.last()
     if (lastAction !is RequestAction) {
         throw IllegalStateException("Unexpected action. playerId[$playerId] action[$action] lastEvent[$lastAction]")
@@ -195,21 +220,21 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
 
     val actionAllowed = when (action) {
         is PlayerActionRequest.Bet -> actionOptions.filterIsInstance<ActionOption.Bet>()
-            .any { (action.amount >= it.minAmount && (it.maxAmount == null || action.amount <= it.maxAmount)) || player.currentStack == action.amount }
+            .any { (action.amount >= it.minAmount && (it.maxAmount == null || action.amount <= it.maxAmount)) || player.stack == action.amount }
 
         is PlayerActionRequest.Call -> actionOptions.filterIsInstance<ActionOption.Call>()
-            .any { action.amount == it.amount || player.currentStack == action.amount }
+            .any { action.amount == it.amount || player.stack == action.amount }
 
         is PlayerActionRequest.Check -> actionOptions.filterIsInstance<ActionOption.Check>().any()
         is PlayerActionRequest.Fold -> actionOptions.filterIsInstance<ActionOption.Fold>().any()
         is PlayerActionRequest.PostBigBlind -> actionOptions.filterIsInstance<ActionOption.PostBigBlind>()
-            .any { action.amount == it.amount || player.currentStack == action.amount }
+            .any { action.amount == it.amount || player.stack == action.amount }
 
         is PlayerActionRequest.PostSmallBlind -> actionOptions.filterIsInstance<ActionOption.PostSmallBlind>()
-            .any { action.amount == it.amount || player.currentStack == action.amount }
+            .any { action.amount == it.amount || player.stack == action.amount }
 
         is PlayerActionRequest.Raise -> actionOptions.filterIsInstance<ActionOption.Raise>()
-            .any { (action.amount >= it.minAmount && (it.maxAmount == null || action.amount <= it.maxAmount)) || player.currentStack == action.amount }
+            .any { (action.amount >= it.minAmount && (it.maxAmount == null || action.amount <= it.maxAmount)) || player.stack == action.amount }
 
         is PlayerActionRequest.MuckCards -> actionOptions.filterIsInstance<ActionOption.MuckCards>().any()
         is PlayerActionRequest.ShowCards -> actionOptions.filterIsInstance<ActionOption.ShowCards>()
@@ -231,13 +256,13 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
         is PlayerActionRequest.Bet -> Bet(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.Call -> Call(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.Check -> Check(
@@ -256,43 +281,43 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
         is PlayerActionRequest.PostAnte -> PostAnte(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.PostBigBlind -> PostBigBlind(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.PostDeadBlind -> PostDeadBlind(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.PostExtraBlind -> PostExtraBlind(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.PostSmallBlind -> PostSmallBlind(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.PostStraddle -> PostStraddle(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.Raise -> Raise(
             playerId = action.playerId,
             amount = action.amount,
-            isAllIn = player.currentStack == action.amount,
+            isAllIn = player.stack == action.amount,
         )
 
         is PlayerActionRequest.ShowCards -> ShowCards(
@@ -304,7 +329,7 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
             playerId = action.playerId,
             playerName = player.name,
             seat = player.seat,
-            stack = player.currentStack,
+            stack = player.stack,
         )
 
         is PlayerActionRequest.StandUp -> StandUp(
@@ -328,11 +353,11 @@ fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
 }
 
 private fun Table.attemptFinishRound(now: Instant): Table {
-    if (rounds.isEmpty() || playerRoundActions.isEmpty() || players.isEmpty()) {
+    if (!isStarted || playerRoundActions.isEmpty() || livePlayers.isEmpty()) {
         return copy()
     }
 
-    if (livePlayers.count { !it.isOut } == 1) {
+    if (livePlayers.count { !it.isOut && !it.isSittingOut } <= 1) {
         return finishHand(now)
     }
 
@@ -345,6 +370,10 @@ private fun Table.attemptFinishRound(now: Instant): Table {
                         1,
                         Round.Street.Flop,
                         actions = listOf(
+                            Round.Action.RoundStarted(
+                                id = 1,
+                                street = Round.Street.Flop,
+                            ),
                             Round.Action.DealCommunityCards(
                                 cards = cards.subList(0, 3)
                             )
@@ -358,6 +387,10 @@ private fun Table.attemptFinishRound(now: Instant): Table {
                         2,
                         Round.Street.Turn,
                         actions = listOf(
+                            Round.Action.RoundStarted(
+                                id = 2,
+                                street = Round.Street.Turn,
+                            ),
                             Round.Action.DealCommunityCards(
                                 cards = cards.subList(3, 5)
                             )
@@ -368,9 +401,13 @@ private fun Table.attemptFinishRound(now: Instant): Table {
             if (currentRound!!.id < 3) {
                 add(
                     Round(
-                        2,
+                        3,
                         Round.Street.River,
                         actions = listOf(
+                            Round.Action.RoundStarted(
+                                id = 3,
+                                street = Round.Street.River,
+                            ),
                             Round.Action.DealCommunityCards(
                                 cards = cards.subList(5, 5)
                             )
@@ -388,10 +425,10 @@ private fun Table.attemptFinishRound(now: Instant): Table {
     val lastRaiseActionPlayerId =
         if (currentRound?.street != Round.Street.PreFlop && playerRoundActions.none { it is Raise || it is Bet }) {
             playerRoundActions.firstOrNull { it is Check }?.playerId
-        } else if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it !is PostSmallBlind && it !is PostBigBlind && it !is RequestAction && it !is Fold }) {
+        } else if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it.playerId == bigBlindPlayer.nextPlayerToAct().playerId && (it is Check || it is Fold || it is Raise || it is Bet || it is Call) }) {
             playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
             // TODO: [low] add  test to check if this breaks when UTG folds
-                ?: players.find { it.seat == bigBlindPlayer.seat.nextSeat() }?.id
+                ?: livePlayers.find { it.seat == bigBlindPlayer.seat.nextSeat() }?.playerId
         } else {
             playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
         }
@@ -422,6 +459,10 @@ private fun Table.attemptFinishRound(now: Instant): Table {
                         id = currentRound!!.id + 1,
                         street = street,
                         actions = listOf(
+                            Round.Action.RoundStarted(
+                                id = currentRound!!.id + 1,
+                                street = street,
+                            ),
                             Round.Action.DealCommunityCards(cards)
                         )
                     )
@@ -435,13 +476,24 @@ private fun Table.attemptFinishRound(now: Instant): Table {
 private fun Table.finishHand(now: Instant): Table {
     if (isFinished) return this
     val winners = calculateWinners()
+    if (winners.isEmpty()) return copy(
+        isFinished = true,
+        finishedAt = now,
+        rounds = rounds.mapIndexed { index, it ->
+            if (index == rounds.size - 1) (it.copy(
+                actions = it.actions + listOf(Round.Action.HandEnded)
+            )) else it
+        },
+        pots = pots,
+    )
     val winnings = pot / winners.count()
+
 
     val firstPlayerToShow = rounds
         .flatMap { it.actions }
         .filterIsInstance<Round.Action.PlayerAction>()
         .lastOrNull { it is Bet || it is Raise }
-        ?.playerId ?: smallBlindPlayer.id
+        ?.playerId ?: smallBlindPlayer.playerId
 
     val firstSeatToShow = livePlayers.find { it.playerId == firstPlayerToShow }?.seat ?: smallBlindPlayer.seat
     val players = livePlayers.sortedBy { it.seat }.shift(firstSeatToShow).filterNot { it.isOut }
@@ -460,10 +512,10 @@ private fun Table.finishHand(now: Instant): Table {
         )
     )
 
-    val outPlayers = copy(pots = pots).players.map { player ->
+    val outPlayers = copy(pots = pots).livePlayers.map { player ->
         player.copy(
-            stack = livePlayers.first { it.playerId == player.id }.currentStack + pots.flatMap { it.playerWins }
-                .filter { it.playerId == player.id }
+            stack = player.stack + pots.flatMap { it.playerWins }
+                .filter { it.playerId == player.playerId }
                 .sumOf { it.winAmount }
         )
     }.filter { it.stack == 0.0 }
@@ -475,7 +527,7 @@ private fun Table.finishHand(now: Instant): Table {
                 street = Round.Street.Showdown,
                 actions = players.map {
                     ShowCards(it.playerId, it.pocketCards)
-                } + outPlayers.map { StandUp(it.id) }
+                } + outPlayers.map { StandUp(it.playerId) }
             )
         )
     } else emptyList()
@@ -484,33 +536,38 @@ private fun Table.finishHand(now: Instant): Table {
     return copy(
         isFinished = true,
         finishedAt = now,
-        rounds = rounds + showdown,
+        rounds = (rounds + showdown).mapIndexed { index, it ->
+            if (index == (rounds + showdown).size - 1) (it.copy(
+                actions = it.actions + listOf(Round.Action.HandEnded)
+            )) else it
+        },
         pots = pots,
     )
 }
 
 private fun Table.calculateWinners(): List<Int> {
-    val handRatings = livePlayers.filterNot { it.isOut }.associateWith { (it.cards).rateHand().score }
+    val handRatings =
+        livePlayers.filterNot { it.isOut && !it.isSittingOut }.associateWith { (it.cards).rateHand().score }
     val winningRating = handRatings.maxOf { it.value }
     return handRatings.filterValues { it == winningRating }.map { it.key.playerId }
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
-    if (rounds.isEmpty() || players.isEmpty() || isFinished) return copy()
+    if (!isStarted || livePlayers.isEmpty() || isFinished) return copy()
 
     val playerRaise = nextPlayerToAct.contributionThisStreet
-    val playerStack = nextPlayerToAct.currentStack
+    val playerStack = nextPlayerToAct.stack
 
     val actionOptions = buildList {
         if (currentRound?.street == Round.Street.PreFlop
-            && nextPlayerToAct.playerId == smallBlindPlayer.id && playerRoundActions.filterIsInstance<PostSmallBlind>()
+            && nextPlayerToAct.playerId == smallBlindPlayer.playerId && playerRoundActions.filterIsInstance<PostSmallBlind>()
                 .none()
         ) {
             add(ActionOption.PostSmallBlind(amount = min(smallBlindAmount, playerStack)))
             return@buildList
         }
 
-        if (currentRound?.street == Round.Street.PreFlop && nextPlayerToAct.playerId == bigBlindPlayer.id && playerRoundActions.filterIsInstance<PostBigBlind>()
+        if (currentRound?.street == Round.Street.PreFlop && nextPlayerToAct.playerId == bigBlindPlayer.playerId && playerRoundActions.filterIsInstance<PostBigBlind>()
                 .none()
         ) {
             add(ActionOption.PostBigBlind(amount = min(bigBlindAmount, playerStack)))
@@ -572,14 +629,14 @@ private fun Table.timeoutCurrentActionRequest(latestAction: RequestAction): Tabl
 
         is ActionOption.PostSmallBlind -> PostSmallBlind(
             playerId = playerId,
-            amount = min(player.currentStack, defaultAction.amount),
-            isAllIn = defaultAction.amount >= player.currentStack
+            amount = min(player.stack, defaultAction.amount),
+            isAllIn = defaultAction.amount >= player.stack
         )
 
         is ActionOption.PostBigBlind -> PostBigBlind(
             playerId = playerId,
-            amount = min(player.currentStack, defaultAction.amount),
-            isAllIn = defaultAction.amount >= player.currentStack
+            amount = min(player.stack, defaultAction.amount),
+            isAllIn = defaultAction.amount >= player.stack
         )
 
         is ActionOption.Call,

@@ -116,7 +116,7 @@ class ServerIntegrationTest {
 
             var playerId = 0
             routing {
-                authEndpoints(authRepository, { playerId++ })
+                authEndpoints(authRepository, gameService, { playerId++ })
                 gameEndpoints(gameService, authRepository)
                 tableEndpoints(websockets, authRepository, tableService)
             }
@@ -256,7 +256,7 @@ class ServerIntegrationTest {
 
     private suspend fun createAndLogin(client: HttpClient, name: String): PlayerSocket {
         val token: String = client.post("http://localhost:$serverPort/auth/login/$name").body()
-        val playerId = authRepository.getPlayer(token)?.playerId ?: throw IllegalStateException("Player not found")
+        val playerId = authRepository.getPlayer(UUID.fromString(token))?.playerId ?: throw IllegalStateException("Player not found")
         return PlayerSocket(playerId, token)
     }
 

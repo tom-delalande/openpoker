@@ -65,7 +65,6 @@ class PostgresCashGameRepository(
             SELECT payload
             FROM cash_game_players
             WHERE id = :id
-            VALUES (:id, :payload)
         """.trimIndent()
         )
             .param("id", playerId)
