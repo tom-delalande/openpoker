@@ -202,7 +202,13 @@ fun Table.performDealerActions(): Table {
 
 fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: Instant): Table {
     when (action) {
-        is PlayerActionRequest.StandUp -> return appendAction(StandUp(playerId))
+        is PlayerActionRequest.StandUp -> return appendAction(
+            StandUp(
+                playerId,
+                livePlayers.first { it.playerId == playerId }.stack
+            )
+        )
+
         else -> {}
     }
 
@@ -334,6 +340,7 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
 
         is PlayerActionRequest.StandUp -> StandUp(
             playerId = action.playerId,
+            stack = player.stack,
         )
     }
 
@@ -527,7 +534,7 @@ private fun Table.finishHand(now: Instant): Table {
                 street = Round.Street.Showdown,
                 actions = players.map {
                     ShowCards(it.playerId, it.pocketCards)
-                } + outPlayers.map { StandUp(it.playerId) }
+                } + outPlayers.map { StandUp(it.playerId, it.stack) }
             )
         )
     } else emptyList()
@@ -654,7 +661,7 @@ private fun Table.timeoutCurrentActionRequest(latestAction: RequestAction): Tabl
     logger.info("Auto-acting for player. playerId[$playerId] action[$newAction]")
 
     return appendAction(newAction)
-        .appendAction(StandUp(playerId))
+        .appendAction(StandUp(playerId, player.stack))
 }
 
 private fun Table.appendAction(action: Round.Action): Table {

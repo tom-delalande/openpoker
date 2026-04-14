@@ -262,6 +262,7 @@ data class Table(
                 @Serializable
                 data class StandUp(
                     override val playerId: Int,
+                    val stack: Double,
                 ) : PlayerAction
             }
 

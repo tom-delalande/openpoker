@@ -71,7 +71,7 @@ class TableServiceTest {
         activeTableStateRepository.set(tableId, table, false, playerSockets)
         var now = wellKnownTimestamp
 
-        tableService.process(now, seedGenerator)
+        tableService.process(now)
         
         val activeTableAfterFirst = activeTableStateRepository.get(tableId)!!
         
@@ -79,7 +79,7 @@ class TableServiceTest {
         
         player1Flow.resetReplayCache()
         
-        tableService.process(now, seedGenerator)
+        tableService.process(now)
         
         val activeTableAfterSecond = activeTableStateRepository.get(tableId)!!
         

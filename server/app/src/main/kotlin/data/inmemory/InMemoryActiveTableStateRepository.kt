@@ -23,6 +23,11 @@ class InMemoryActiveTableStateRepository : ActiveTableStateRepository {
         return tables[id]
     }
 
+    override suspend fun get(id: UUID, work: suspend (ActiveTable) -> Unit): Table {
+        work(get(id)!!)
+        return get(id)!!.table
+    }
+
     override fun getSession(sessionId: UUID): ActiveTable? {
         return tables.values.find { it.playerSockets.any { it.sessionId == sessionId } && !it.finished }
     }

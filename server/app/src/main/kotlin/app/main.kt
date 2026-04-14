@@ -91,7 +91,7 @@ fun main() {
         val logger = LoggerFactory.getLogger("ProcessingThread")
         while (true) {
             try {
-                tableService.process()
+                gameService.processTables()
                 delay(500.milliseconds)
             } catch (exception: Exception) {
                 logger.error("error when processing", exception)

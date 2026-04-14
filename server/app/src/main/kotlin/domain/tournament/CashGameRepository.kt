@@ -11,8 +11,9 @@ interface CashGameRepository {
     fun get(id: UUID): CashGame?
     fun get(): List<CashGame>
     fun save(id: UUID, game: CashGame)
+    fun delete(id: UUID)
 
-    fun createPlayer(playerId: Int, player: Player)
+    fun setPlayer(playerId: Int, player: Player)
     fun getPlayer(playerId: Int): Player
 
     @Serializable

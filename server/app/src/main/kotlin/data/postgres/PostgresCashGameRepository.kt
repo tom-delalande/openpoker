@@ -47,11 +47,24 @@ class PostgresCashGameRepository(
             .update()
     }
 
-    override fun createPlayer(playerId: Int, player: CashGameRepository.Player) {
+    override fun delete(id: UUID) {
+        jdbcClient.sql(
+            """
+            DELETE FROM cash_games
+            WHERE id = :id
+        """.trimIndent()
+        )
+            .param("id", id)
+            .update()
+    }
+
+    override fun setPlayer(playerId: Int, player: CashGameRepository.Player) {
         jdbcClient.sql(
             """
             INSERT INTO cash_game_players (id, payload)
             VALUES (:id, :payload)
+            ON CONFLICT (id) DO UPDATE
+                SET payload = :payload
         """.trimIndent()
         )
             .param("id", playerId)

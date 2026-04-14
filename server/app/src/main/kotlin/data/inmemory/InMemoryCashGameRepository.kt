@@ -20,7 +20,11 @@ class InMemoryCashGameRepository : CashGameRepository {
         cashGames[id] = game
     }
 
-    override fun createPlayer(playerId: Int, player: CashGameRepository.Player) {
+    override fun delete(id: UUID) {
+        cashGames.remove(id)
+    }
+
+    override fun setPlayer(playerId: Int, player: CashGameRepository.Player) {
         cashGamePlayers.add(player)
     }
 

@@ -8,7 +8,6 @@ import domain.tournament.CashGameRepository
 import domain.tournament.CashGameService
 import java.time.Instant
 import java.util.UUID
-import kotlin.random.Random
 import kotlin.time.toKotlinInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
@@ -92,7 +91,7 @@ class TableService(
     val historicRepository: HandHistoryRepository,
     val sessions: Map<UUID, MutableSharedFlow<HandEvent>>,
 ) {
-    suspend fun process(now: Instant = Instant.now(), seedGenerator: () -> Long = { Random.nextLong() }) {
+    suspend fun process(now: Instant = Instant.now()) {
         activeRepository.performedLockedFunctionOnTables { tables ->
             tables.map { (tableId, table, sockets, finished) ->
                 val updated = table.processTable(now)
@@ -112,6 +111,46 @@ class TableService(
                 }
 
                 saveTable(tableId, updated, finished, updatedSockets.toList(), now)
+            }
+        }
+    }
+
+    suspend fun process(tableId: UUID, now: Instant = Instant.now()): Map<Int, CashGameService.PlayerDataResponse>? {
+        val table = activeRepository.get(tableId) { activeTable ->
+            val updated = activeTable.table.processTable(now)
+            val events = updated.toEvents()
+            val updatedSockets = mutableListOf<Socket>()
+            for (playerSocket in activeTable.playerSockets) {
+                if (playerSocket.currentHandId != tableId) continue
+                val playerEvents = events
+                    .drop(playerSocket.version)
+                    .prepareForPlayer(playerSocket.playerId)
+
+                val session = sessions[playerSocket.sessionId]
+                for (event in playerEvents) {
+                    session?.emit(event)
+                }
+                updatedSockets.add(playerSocket.copy(version = events.size))
+            }
+
+            saveTable(tableId, updated, activeTable.finished, updatedSockets.toList(), now)
+        }
+
+        return table?.rounds?.flatMap { it.actions }?.fold(mapOf()) { players, event ->
+            when (event) {
+                is Table.Round.Action.PlayerAction.StandUp -> players + (event.playerId to CashGameService.PlayerDataResponse(
+                    event.playerId,
+                    event.stack,
+                    false,
+                ))
+
+                is Table.Round.Action.PlayerAction.SitDown -> players + (event.playerId to CashGameService.PlayerDataResponse(
+                    event.playerId,
+                    event.stack,
+                    true,
+                ))
+
+                else -> players
             }
         }
     }
@@ -150,7 +189,8 @@ class TableService(
         actions: List<PlayerActionRequest>,
         now: Instant = Instant.now(),
     ) {
-        val activeTable = activeRepository.getSession(sessionId)!!
+        val activeTable = activeRepository.getSession(sessionId)
+            ?: throw IllegalStateException("Session not found sessionId[$sessionId] playerId[$playerId]")
         val updated = actions.fold(activeTable.table) { table, action ->
             logger.info("Processed player action. playerId[$playerId] session[$sessionId] action[$action]")
             table.processPlayerAction(playerId, action, now)

@@ -112,6 +112,24 @@ class RedisActiveTableRepository(
         }
     }
 
+    override suspend fun get(id: UUID, work: suspend (ActiveTable) -> Unit): Table? {
+        // TODO: [low] scope this lock to the table
+        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        try {
+            val data = redisClient.get(tableKey(id))
+            if (data != null) {
+                val table = json.decodeFromString<ActiveTable>(data)
+                work(table)
+                return table.table
+            } else {
+                return null
+            }
+        } finally {
+            releaseLock(lockValue)
+        }
+
+    }
+
     override fun getSession(sessionId: UUID): ActiveTable? {
         val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
         return try {

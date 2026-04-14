@@ -1,5 +1,6 @@
 package domain.tournament
 
+import domain.table.ActiveTableStateRepository
 import domain.table.TableService
 import java.util.UUID
 
@@ -11,32 +12,44 @@ class CashGameService(
 
     fun createOrJoin(playerId: Int, name: String, stack: Double): UUID {
         val games = repository.get()
-        val game = games.find {
-            it.players.size < 9
-        } ?: CashGameRepository.CashGame()
+        val game = games.find { it.players.size in 1..<9 } ?: CashGameRepository.CashGame()
         if (game.players.none { it.id == playerId }) {
-            val updatedGame = game.copy(
-                players = game.players + CashGameRepository.Player(playerId, name, stack)
-            )
-            tableService.createOrJoin(game.tableId, CashGameRepository.Player(playerId, name, stack))
+            val updatedGame = game.copy(players = game.players + CashGameRepository.Player(playerId, name, stack))
             repository.save(game.id, updatedGame)
-        } else {
             tableService.createOrJoin(game.tableId, CashGameRepository.Player(playerId, name, stack))
         }
 
         return game.tableId
     }
 
+    suspend fun processTables() {
+        val games = repository.get()
+        games.map { game ->
+            val playerUpdates = tableService.process(game.tableId)
+            if (playerUpdates == null) {
+                repository.delete(game.id)
+            } else {
+                playerUpdates.forEach {
+                    if (it.value.leaving) {
+                        removePlayer(game.id, it.key)
+                    }
+                    updatePlayerStack(it.key, it.value.stack)
+                }
+            }
+        }
+    }
+
     fun createPlayer(playerId: Int, name: String) {
-        repository.createPlayer(playerId, CashGameRepository.Player(playerId, name, defaultStack))
+        repository.setPlayer(playerId, CashGameRepository.Player(playerId, name, defaultStack))
     }
 
     fun getPlayer(playerId: Int): CashGameRepository.Player {
         return repository.getPlayer(playerId)
     }
 
-    fun updateGameInformation(gameId: UUID) {
-        val game = repository.get(gameId)
+    fun updatePlayerStack(playerId: Int, stack: Double) {
+        val player = repository.getPlayer(playerId)
+        repository.setPlayer(playerId, player.copy(stack = stack))
     }
 
     fun removePlayer(gameId: UUID, playerId: Int) {
@@ -47,4 +60,10 @@ class CashGameService(
         )
         repository.save(gameId, updated)
     }
+
+    data class PlayerDataResponse(
+        val playerId: Int,
+        val stack: Double,
+        val leaving: Boolean,
+    )
 }
