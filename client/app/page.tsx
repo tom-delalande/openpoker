@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useGameStore } from '../src/store/gameStore';
 import { client } from '../src/lib/api/client';
+import { Button } from '../src/components/ui/Button';
+import { Input } from '../src/components/ui/Input';
 import type { components } from '../src/lib/api/types';
 
 type PlayerInfo = components['schemas']['PlayerInfo'];
@@ -39,18 +41,17 @@ export default function HomePage() {
     }
   }, []);
 
-
   const handleLogin = async () => {
     const name = playerName.trim() || 'Player';
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data, error } = await client.POST('/auth/login', { 
+      const { data, error: apiError } = await client.POST('/auth/login', { 
         params: { query: { name } }
       });
 
-      if (error) {
+      if (apiError) {
         throw new Error('Login failed');
       }
 
@@ -103,18 +104,15 @@ export default function HomePage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-      console.log('Sending join request to:', `${apiUrl}/game/join?token=${token}`);
       const joinFetchResponse = await fetch(`${apiUrl}/game/join?token=${encodeURIComponent(token)}`, {
         method: 'POST',
       });
-      console.log('Join fetch response status:', joinFetchResponse.status);
-      
+
       if (!joinFetchResponse.ok) {
         throw new Error(`Failed to join game: ${joinFetchResponse.status}`);
       }
-      
+
       const tableId = await joinFetchResponse.text();
-      console.log('Table ID:', tableId);
       localStorage.setItem('tableId', tableId);
       setTableId(tableId);
       setCurrentView('table');
@@ -130,15 +128,27 @@ export default function HomePage() {
 
   if (hasToken && playerInfo) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-[#1a472a]">
-        <div className="bg-[#2d5a3d] border-4 border-[#1a3622] rounded-xl p-8 shadow-2xl min-w-[320px] text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Welcome</h2>
-          <div className="text-white text-lg mb-2">{playerInfo.name}</div>
-          <div className="text-yellow-400 text-xl font-bold mb-6">Stack: ${playerInfo.stack.toFixed(2)}</div>
-          <button
+      <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-[#2d5a3d] border-4 border-[#1a3622] rounded-2xl p-6 sm:p-8 shadow-2xl">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 text-center">Welcome</h2>
+          <p className="text-white/70 text-center mb-6">{playerInfo.name}</p>
+          
+          <div className="bg-[#1a472a] rounded-xl p-4 mb-6 text-center border border-[#1a5c32]">
+            <p className="text-gray-400 text-sm mb-1">Your Stack</p>
+            <p className="text-yellow-400 text-3xl font-bold">${playerInfo.stack.toFixed(2)}</p>
+          </div>
+
+          {error && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm text-center">
+              {error}
+            </div>
+          )}
+
+          <Button
             onClick={handleJoinTable}
             disabled={isLoading}
-            className="w-full px-6 py-3 text-lg font-bold text-white bg-[#4d9a5d] rounded-lg hover:bg-[#5dba6d] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            size="lg"
+            fullWidth
           >
             {isLoading ? (
               <>
@@ -148,51 +158,71 @@ export default function HomePage() {
             ) : (
               'Join Table'
             )}
-          </button>
-          <button
+          </Button>
+
+          <Button
             onClick={handleLogout}
-            disabled={isLoading}
-            className="w-full mt-4 px-6 py-3 text-lg font-bold text-white bg-[#1a3622] rounded-lg hover:bg-[#0f2415] transition-colors disabled:opacity-50"
+            variant="ghost"
+            size="md"
+            fullWidth
+            className="mt-3"
           >
             Logout
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-[#1a472a]">
-      <div className="bg-[#2d5a3d] border-4 border-[#1a3622] rounded-xl p-8 shadow-2xl min-w-[320px]">
-        <h2 className="text-2xl font-bold text-white mb-6 text-center">Enter Your Name</h2>
-        <input
-          type="text"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleLogin()}
-          placeholder="Your name (default: Player)"
-          maxLength={20}
-          autoFocus
-          disabled={isLoading}
-          className="w-full px-4 py-3 text-lg bg-[#1a472a] border-2 border-[#1a3622] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#4d9a5d] transition-colors mb-4 disabled:opacity-50"
-        />
-        {error && (
-          <div className="text-red-400 text-sm mb-4 text-center">{error}</div>
-        )}
-        <button
-          onClick={handleLogin}
-          disabled={isLoading}
-          className="w-full px-6 py-3 text-lg font-bold text-white bg-[#4d9a5d] rounded-lg hover:bg-[#5dba6d] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {isLoading ? (
-            <>
-              <span className="animate-spin">⟳</span>
-              Logging in...
-            </>
-          ) : (
-            'Login'
+    <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-[#2d5a3d] border-4 border-[#1a3622] rounded-2xl p-6 sm:p-8 shadow-2xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">OpenPoker</h1>
+          <p className="text-white/60">Texas Hold'em</p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-white/80 text-sm mb-2 font-medium">
+              Your Name
+            </label>
+            <Input
+              value={playerName}
+              onChange={setPlayerName}
+              placeholder="Enter your name"
+              autoFocus
+              disabled={isLoading}
+              onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleLogin()}
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-300 text-sm text-center">
+              {error}
+            </div>
           )}
-        </button>
+
+          <Button
+            onClick={handleLogin}
+            disabled={isLoading}
+            size="lg"
+            fullWidth
+          >
+            {isLoading ? (
+              <>
+                <span className="animate-spin">⟳</span>
+                Logging in...
+              </>
+            ) : (
+              'Play Now'
+            )}
+          </Button>
+        </div>
+
+        <p className="text-white/40 text-xs text-center mt-6">
+          No account needed. Just pick a name and play!
+        </p>
       </div>
     </div>
   );
