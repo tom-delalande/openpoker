@@ -68,6 +68,7 @@ export function ActionBar({
   const currentMin = minBet || minRaise;
   const currentMax = maxBet || maxRaise;
   const currentAmount = parseFloat(betAmount) || currentMin;
+  const sliderPercent = currentMax > currentMin ? ((currentAmount - currentMin) / (currentMax - currentMin)) * 100 : 0;
 
   const handlePresetClick = useCallback((percentage: number) => {
     const amount = Math.round((currentMax * percentage) / 100);
@@ -128,14 +129,26 @@ export function ActionBar({
             </div>
 
             <div className="px-2">
-              <input
-                type="range"
-                min={currentMin}
-                max={currentMax}
-                value={currentAmount}
-                onChange={(e) => onBetAmountChange(e.target.value)}
-                className="w-full"
-              />
+              <div className="relative h-6 flex items-center">
+                <div className="absolute w-full h-2 bg-[#1a3622] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500 rounded-full transition-all duration-75"
+                    style={{ width: `${sliderPercent}%` }}
+                  />
+                </div>
+                <div 
+                  className="absolute w-5 h-5 bg-white rounded-full shadow-lg border-2 border-green-500 pointer-events-none"
+                  style={{ left: `calc(${sliderPercent}% - 10px)` }}
+                />
+                <input
+                  type="range"
+                  min={currentMin}
+                  max={currentMax}
+                  value={currentAmount}
+                  onChange={(e) => onBetAmountChange(e.target.value)}
+                  className="absolute w-full h-5 opacity-0 cursor-pointer"
+                />
+              </div>
               <div className="flex justify-between text-gray-500 text-xs mt-1 px-1">
                 <span>{formatAmount(currentMin)}</span>
                 <span>{formatAmount(currentMax)}</span>
