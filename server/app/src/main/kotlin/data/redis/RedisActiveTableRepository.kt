@@ -77,7 +77,7 @@ class RedisActiveTableRepository(
     }
 
     override suspend fun performedLockedFunctionOnTables(work: suspend (List<ActiveTable>) -> Unit) {
-        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        val lockValue = acquireLock()
         try {
             val keys = redisClient.keys("$TABLE_KEY_PREFIX*")
             val tables = keys.mapNotNull { key ->
@@ -95,7 +95,7 @@ class RedisActiveTableRepository(
     }
 
     override fun get(id: UUID): ActiveTable? {
-        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        val lockValue = acquireLock()
         return try {
             val data = redisClient.get(tableKey(id))
             if (data == null) {
@@ -113,15 +113,14 @@ class RedisActiveTableRepository(
         }
     }
 
-    override suspend fun get(id: UUID, work: suspend (ActiveTable) -> Unit): Table? {
+    override suspend fun get(id: UUID, work: suspend (ActiveTable) -> ActiveTable): Table? {
         // TODO: [low] scope this lock to the table
         val lockValue = acquireLock()
         try {
             val data = redisClient.get(tableKey(id))
             if (data != null) {
                 val table = json.decodeFromString<ActiveTable>(data)
-                work(table)
-                return table.table
+                return work(table).table
             } else {
                 return null
             }
@@ -131,18 +130,17 @@ class RedisActiveTableRepository(
 
     }
 
-    override fun getSession(sessionId: UUID): ActiveTable? {
-        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+    override fun getSession(sessionId: UUID): UUID? {
+        val lockValue = acquireLock()
         return try {
             val tableIdStr = redisClient.get(sessionKey(sessionId)) ?: return null
-            val tableId = try {
+            try {
                 UUID.fromString(tableIdStr)
             } catch (e: Exception) {
                 logger.error("Invalid tableId in session mapping: $tableIdStr", e)
                 redisClient.del(sessionKey(sessionId))
                 return null
             }
-            getByKey(tableId)
         } finally {
             releaseLock(lockValue)
         }

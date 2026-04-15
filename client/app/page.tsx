@@ -9,6 +9,24 @@ import type { components } from '../src/lib/api/types';
 
 type PlayerInfo = components['schemas']['PlayerInfo'];
 
+function ChipIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 29"
+      fill="none"
+      className={className}
+      style={{ width: '1em', height: '1em' }}
+    >
+      <circle cx="12" cy="20" r="7" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="20" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="16" r="7" fill="#fcd34d" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="16" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="12" r="7" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="12" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+    </svg>
+  );
+}
+
 function getInitialPlayerName(): string {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('playerName') || '';
@@ -19,6 +37,7 @@ function getInitialPlayerName(): string {
 export default function HomePage() {
   const [playerName, setPlayerName] = useState(getInitialPlayerName);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingStack, setIsFetchingStack] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playerInfo, setPlayerInfo] = useState<PlayerInfo | null>(null);
 
@@ -37,7 +56,10 @@ export default function HomePage() {
             localStorage.setItem('playerName', data.name);
           }
         })
-        .catch(console.error);
+        .catch(console.error)
+        .finally(() => setIsFetchingStack(false));
+    } else {
+      setIsFetchingStack(false);
     }
   }, []);
 
@@ -128,14 +150,28 @@ export default function HomePage() {
 
   if (hasToken && playerInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex flex-col items-center justify-center p-4">
+        <h1 style={{ fontFamily: 'var(--font-fredoka)' }} className="text-5xl sm:text-7xl text-white mb-4">OpenPoker</h1>
+
+        <div className="text-center mb-6">
+          <p className="text-white/60 text-sm">Playing as</p>
+          <p className="text-white text-2xl font-bold">{playerInfo.name}</p>
+        </div>
+
         <div className="w-full max-w-sm bg-[#2d5a3d] border-4 border-[#1a3622] rounded-2xl p-6 sm:p-8 shadow-2xl">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 text-center">Welcome</h2>
-          <p className="text-white/70 text-center mb-6">{playerInfo.name}</p>
-          
           <div className="bg-[#1a472a] rounded-xl p-4 mb-6 text-center border border-[#1a5c32]">
             <p className="text-gray-400 text-sm mb-1">Your Stack</p>
-            <p className="text-yellow-400 text-3xl font-bold">${playerInfo.stack.toFixed(2)}</p>
+            {isFetchingStack ? (
+              <div className="text-white/60 text-xl py-2 flex items-center justify-center gap-2">
+                <span className="animate-spin">⟳</span>
+                Loading...
+              </div>
+            ) : (
+              <p className="text-yellow-400 text-3xl font-bold flex items-center justify-center gap-2">
+                <ChipIcon className="w-7 h-7" />
+                {playerInfo.stack.toFixed(2)}
+              </p>
+            )}
           </div>
 
           {error && (
@@ -160,28 +196,24 @@ export default function HomePage() {
             )}
           </Button>
 
-          <Button
-            onClick={handleLogout}
-            variant="ghost"
-            size="md"
-            fullWidth
-            className="mt-3"
-          >
-            Logout
-          </Button>
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={handleLogout}
+              className="text-white/40 hover:text-white/70 text-sm transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-[#2d5a3d] border-4 border-[#1a3622] rounded-2xl p-6 sm:p-8 shadow-2xl">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">OpenPoker</h1>
-          <p className="text-white/60">Texas Hold'em</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex flex-col items-center justify-center p-4">
+      <h1 style={{ fontFamily: 'var(--font-fredoka)' }} className="text-5xl sm:text-7xl text-white mb-8">OpenPoker</h1>
 
+      <div className="w-full max-w-sm bg-[#2d5a3d] border-4 border-[#1a3622] rounded-2xl p-6 sm:p-8 shadow-2xl">
         <div className="space-y-4">
           <div>
             <label className="block text-white/80 text-sm mb-2 font-medium">
@@ -219,10 +251,6 @@ export default function HomePage() {
             )}
           </Button>
         </div>
-
-        <p className="text-white/40 text-xs text-center mt-6">
-          No account needed. Just pick a name and play!
-        </p>
       </div>
     </div>
   );

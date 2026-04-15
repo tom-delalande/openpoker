@@ -28,6 +28,54 @@
   --color-warning: var(--warning);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-permanent-marker);
+}
+
+.font-display {
+  font-family: var(--font-fredoka), cursive;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: #1a3622;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid #2d5a3d;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  background-color: #4d9a5d;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  border: 2px solid #5dba6d;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+input[type="range"]::-moz-range-track {
+  background: #1a3622;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid #2d5a3d;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background-color: #4d9a5d;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  border: 2px solid #5dba6d;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 * {

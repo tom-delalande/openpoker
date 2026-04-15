@@ -105,10 +105,10 @@ fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLo
         return finishHand(now)
     }
 
-    if (!isStarted && players.size >= minPlayers) {
+    if (!isStarted && activePlayers.size >= minPlayers) {
         return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator(), now = now, includePreFlopEvents = true)
     }
-    if (isFinished && finishedAt?.plusSeconds(5)?.isBefore(now) == true) {
+    if (isFinished && finishedAt?.plusSeconds(5)?.isBefore(now) == true && activePlayers.size > 1) {
         return startNextHand(dealerSeat = dealerSeat.nextSeat(), seed = seedGenerator(), now = now)
     }
 
@@ -523,7 +523,8 @@ private fun Table.finishHand(now: Instant): Table {
         ?: firstActivePlayerAfterDealer
 
     val players = players.sortedBy { it.seat }.shift(firstPlayerToShow.seat)
-    val inPlayers = activePlayers.filterNot { it.isOut || it.isSittingOut }.sortedBy { it.seat }.shift(firstPlayerToShow.seat)
+    val inPlayers =
+        activePlayers.filterNot { it.isOut || it.isSittingOut }.sortedBy { it.seat }.shift(firstPlayerToShow.seat)
 
     val pots = listOf(
         Table.Pot(

@@ -1,6 +1,6 @@
+import { useState, useCallback } from 'react';
 import { formatAmount } from '../../lib/cards';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
 
 interface ActionButton {
   kind: string;
@@ -17,6 +17,24 @@ interface ActionBarProps {
   onBetAmountChange: (amount: string) => void;
   timeRemaining: number;
   maxTime: number;
+}
+
+function ChipIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 29"
+      fill="none"
+      className={className}
+      style={{ width: '1em', height: '1em' }}
+    >
+      <circle cx="12" cy="20" r="7" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="20" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="16" r="7" fill="#fcd34d" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="16" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="12" r="7" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="12" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+    </svg>
+  );
 }
 
 export function ActionBar({
@@ -47,6 +65,20 @@ export function ActionBar({
   const minRaise = actions.find((a) => a.kind === 'Raise')?.minAmount || 0;
   const maxRaise = actions.find((a) => a.kind === 'Raise')?.maxAmount || 0;
 
+  const currentMin = minBet || minRaise;
+  const currentMax = maxBet || maxRaise;
+  const currentAmount = parseFloat(betAmount) || currentMin;
+
+  const handlePresetClick = useCallback((percentage: number) => {
+    const amount = Math.round((currentMax * percentage) / 100);
+    const clamped = Math.max(currentMin, Math.min(currentMax, amount));
+    onBetAmountChange(clamped.toString());
+  }, [currentMax, currentMin, onBetAmountChange]);
+
+  const handleAllIn = useCallback(() => {
+    onBetAmountChange(currentMax.toString());
+  }, [currentMax, onBetAmountChange]);
+
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-[#0d3d22]/95 backdrop-blur-md border-t-2 border-[#1a5c32] p-4 safe-area-bottom">
       <div className="max-w-lg mx-auto space-y-3">
@@ -62,18 +94,52 @@ export function ActionBar({
         </div>
 
         {needsBetInput && (
-          <div className="flex items-center gap-2 justify-center">
-            <Input
-              type="number"
-              value={betAmount}
-              onChange={onBetAmountChange}
-              placeholder={`${minBet || minRaise} - ${maxBet || maxRaise}`}
-              min={minBet || minRaise}
-              max={maxBet || maxRaise}
-              className="w-32 text-center"
-            />
-            <div className="text-gray-400 text-sm">
-              {minBet ? `SB: ${formatAmount(minBet)}` : `RB: ${formatAmount(minRaise)}`}
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-yellow-400 text-xl font-bold">
+              <ChipIcon className="w-6 h-6" />
+              {currentAmount.toFixed(0)}
+            </div>
+
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => handlePresetClick(25)}
+                className="px-3 py-1.5 bg-[#1a3622] hover:bg-[#2d5a3d] text-white text-sm rounded-lg transition-colors border border-[#1a5c32]"
+              >
+                25%
+              </button>
+              <button
+                onClick={() => handlePresetClick(50)}
+                className="px-3 py-1.5 bg-[#1a3622] hover:bg-[#2d5a3d] text-white text-sm rounded-lg transition-colors border border-[#1a5c32]"
+              >
+                50%
+              </button>
+              <button
+                onClick={() => handlePresetClick(75)}
+                className="px-3 py-1.5 bg-[#1a3622] hover:bg-[#2d5a3d] text-white text-sm rounded-lg transition-colors border border-[#1a5c32]"
+              >
+                75%
+              </button>
+              <button
+                onClick={handleAllIn}
+                className="px-3 py-1.5 bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-400 text-sm rounded-lg transition-colors border border-yellow-600/50"
+              >
+                All-In
+              </button>
+            </div>
+
+            <div className="px-2">
+              <input
+                type="range"
+                min={currentMin}
+                max={currentMax}
+                value={currentAmount}
+                onChange={(e) => onBetAmountChange(e.target.value)}
+                className="w-full"
+              />
+              <div className="flex justify-between text-gray-500 text-xs mt-1 px-1">
+                <span>{formatAmount(currentMin)}</span>
+                <span>{formatAmount(currentMax)}</span>
+              </div>
             </div>
           </div>
         )}

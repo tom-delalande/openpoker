@@ -96,10 +96,10 @@ fun Route.tableEndpoints(
                         try {
                             val receivedText = frame.readText()
                             val playerAction = json.decodeFromString<PlayerAction>(receivedText)
-                            tableService.receivePlayerActions(
+                            tableService.receivePlayerAction(
                                 sessionId,
                                 player.playerId,
-                                listOf(playerAction.toDomain(player.playerId))
+                                playerAction.toDomain(player.playerId)
                             )
                         } catch (exception: TableService.SessionClosedException) {
                             throw exception

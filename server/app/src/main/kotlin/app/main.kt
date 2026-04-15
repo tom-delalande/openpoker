@@ -10,7 +10,6 @@ import data.postgres.PostgresHandHistoryRepository
 import data.redis.RedisActiveTableRepository
 import domain.table.ActiveTableStateRepository
 import domain.table.HandHistoryRepository
-import domain.table.Socket
 import domain.table.TableService
 import domain.tournament.CashGameRepository
 import domain.tournament.CashGameService
@@ -85,7 +84,7 @@ fun main() {
     }
     val websockets = ConcurrentHashMap<UUID, MutableSharedFlow<HandEvent>>()
     val tableService = TableService(activeTableRepository, handHistoryRepository, websockets)
-    val gameService = CashGameService(cashGameRepository, tableService)
+    val gameService = CashGameService(cashGameRepository, handHistoryRepository, tableService)
 
     CoroutineScope(Dispatchers.Default).launch {
         val logger = LoggerFactory.getLogger("ProcessingThread")

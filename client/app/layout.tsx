@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Fredoka } from "next/font/google";
 import "./globals.css";
 import App from "./App";
 
@@ -13,6 +13,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const boogaloo = Fredoka({
+  variable: "--font-fredoka",
+  weight: "400",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "OpenPoker",
   description: "Online poker table",
@@ -22,7 +28,7 @@ export default function RootLayout() {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${boogaloo.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col"><App /></body>
     </html>

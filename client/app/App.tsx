@@ -42,5 +42,5 @@ export default function App() {
     return null;
   }
 
-  return currentView === 'table' ? <TablePage /> : <HomePage />;
+  return currentView === 'table' ? <TablePage /> : <HomePage key={currentView} />;
 }

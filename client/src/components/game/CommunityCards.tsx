@@ -3,22 +3,32 @@ import { Card } from './Card';
 
 interface CommunityCardsProps {
   cards: string[];
-  street: string | null;
   className?: string;
 }
 
-export function CommunityCards({ cards, street, className = '' }: CommunityCardsProps) {
+function ChipIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 29"
+      fill="none"
+      className={className}
+      style={{ width: '1em', height: '1em' }}
+    >
+      <circle cx="12" cy="20" r="7" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="20" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="16" r="7" fill="#fcd34d" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="16" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="12" r="7" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="12" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+    </svg>
+  );
+}
+
+export function CommunityCards({ cards, className = '' }: CommunityCardsProps) {
   const placeholderCount = 5 - cards.length;
 
   return (
     <div className={`flex flex-col items-center gap-2 ${className}`}>
-      {street && (
-        <div className="px-3 py-1 bg-[#0d3d22] rounded-full border border-[#1a5c32]">
-          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-            {street}
-          </span>
-        </div>
-      )}
       <div className="flex gap-1 sm:gap-2">
         {cards.map((card, i) => (
           <Card key={i} cardStr={card} size="md" />
@@ -46,8 +56,8 @@ export function PotDisplay({ amount, className = '' }: PotDisplayProps) {
       flex items-center gap-2
       ${className}
     `}>
-      <span className="text-gray-400 text-sm font-medium">POT</span>
-      <span className="text-yellow-400 font-bold text-lg">
+      <span className="text-yellow-400 font-bold text-lg flex items-center gap-1">
+        <ChipIcon className="w-5 h-5" />
         {formatAmount(amount)}
       </span>
     </div>

@@ -20,6 +20,7 @@ interface CashGameRepository {
     data class CashGame(
         val id: UUID = UUID.randomUUID(),
         val tableId: UUID = UUID.randomUUID(),
+        val savedHandVersion: Int = 0,
         val players: List<Player> = emptyList(),
     )
 

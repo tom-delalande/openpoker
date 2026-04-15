@@ -203,10 +203,7 @@ export function PokerTable() {
         <Button variant="ghost" size="sm" onClick={handleLeaveTable}>
           ← Leave
         </Button>
-        <div className="flex items-center gap-2">
-          <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-          <span className="text-white text-sm">{isConnected ? 'Connected' : 'Disconnected'}</span>
-        </div>
+        <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
         {error && <span className="text-red-400 text-sm hidden sm:inline">{error}</span>}
       </header>
 
@@ -215,7 +212,7 @@ export function PokerTable() {
           <div className="bg-[#35654d] rounded-3xl border-4 border-[#1a5c32] shadow-2xl shadow-black/50 p-4 sm:p-6">
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-3xl" />
 
-            <CommunityCards cards={communityCards} street={streetName} />
+            <CommunityCards cards={communityCards} />
 
             <div className="flex justify-center mt-4">
               <PotDisplay amount={currentPot} />
@@ -250,7 +247,7 @@ export function PokerTable() {
           </div>
         )}
 
-        {players.length === 0 && isConnected && (
+        {players.length <= 1 && isConnected && (
           <div className="mt-4 text-white/70 text-center">
             Waiting for players...
           </div>

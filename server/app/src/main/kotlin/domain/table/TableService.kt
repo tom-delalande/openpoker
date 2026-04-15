@@ -89,37 +89,8 @@ class TableService(
     val historicRepository: HandHistoryRepository,
     val sessions: Map<UUID, MutableSharedFlow<HandEvent>>,
 ) {
-    suspend fun process(now: Instant = Instant.now()) {
-        activeRepository.performedLockedFunctionOnTables { tables ->
-            tables.map { (tableId, table, sockets, finished) ->
-                val updated = table.processTable(now)
-                val events = updated.toEvents()
-                val updatedSockets = mutableListOf<Socket>()
-                for (playerSocket in sockets) {
-                    val version = if (updated.handVersion == playerSocket.handVersion) {
-                        playerSocket.version
-                    } else {
-                        0
-                    }
-                    if (playerSocket.tableId != tableId) continue
-                    val playerEvents = events
-                        .drop(version)
-                        .prepareForPlayer(playerSocket.playerId)
-
-                    val session = sessions[playerSocket.sessionId]
-                    for (event in playerEvents) {
-                        session?.emit(event)
-                    }
-                    updatedSockets.add(playerSocket.copy(handVersion = updated.handVersion, version = events.size))
-                }
-
-                saveTable(tableId, updated, finished, updatedSockets.toList(), now)
-            }
-        }
-    }
-
-    suspend fun process(tableId: UUID, now: Instant = Instant.now()): Map<Int, CashGameService.PlayerDataResponse>? {
-        val table = activeRepository.get(tableId) { activeTable ->
+    suspend fun process(tableId: UUID, now: Instant = Instant.now()): Table? {
+        return activeRepository.get(tableId) { activeTable ->
             val updated = activeTable.table.processTable(now)
             val events = updated.toEvents()
             val updatedSockets = mutableListOf<Socket>()
@@ -141,33 +112,9 @@ class TableService(
                 updatedSockets.add(playerSocket.copy(handVersion = updated.handVersion, version = events.size))
             }
 
-            saveTable(tableId, updated, activeTable.finished, updatedSockets.toList(), now)
-        }
-
-        return table?.rounds?.flatMap { it.actions }?.fold(mapOf()) { players, event ->
-            when (event) {
-                is Table.Round.Action.PlayerAction.StandUp -> players + (event.playerId to CashGameService.PlayerDataResponse(
-                    event.playerId,
-                    event.stack,
-                    true,
-                ))
-
-                is Table.Round.Action.PlayerAction.SitDown -> players + (event.playerId to CashGameService.PlayerDataResponse(
-                    event.playerId,
-                    event.stack,
-                    false,
-                ))
-
-                is Table.Round.Action.HandEnded -> {
-                    val editable = players.toMutableMap()
-                    event.playerStacks.forEach {
-                        editable[it.playerId] = editable[it.playerId]!!.copy(stack = it.stack)
-                    }
-                    editable
-                }
-
-                else -> players
-            }
+            val updatedActiveTable = ActiveTable(tableId, updated, updatedSockets.toList(), activeTable.finished)
+            activeRepository.set(tableId, updatedActiveTable, withLock = false)
+            updatedActiveTable
         }
     }
 
@@ -178,6 +125,7 @@ class TableService(
                 table.copy(playerSockets = table.playerSockets + Socket(playerId, sessionId, tableId, 0, 0)),
                 withLock = false,
             )
+            table
         }
     }
 
@@ -188,49 +136,27 @@ class TableService(
                 table.copy(playerSockets = table.playerSockets.filterNot { it.sessionId == sessionId }),
                 withLock = false,
             )
+            table
         }
     }
 
     class SessionClosedException : Exception()
 
-    fun receivePlayerActions(
+    suspend fun receivePlayerAction(
         sessionId: UUID,
         playerId: Int,
-        actions: List<PlayerActionRequest>,
+        action: PlayerActionRequest,
         now: Instant = Instant.now(),
     ) {
-        val activeTable = activeRepository.getSession(sessionId)
+        val tableId = activeRepository.getSession(sessionId)
             ?: throw SessionClosedException()
-        val updated = actions.fold(activeTable.table) { table, action ->
+        activeRepository.get(tableId) { activeTable ->
             logger.info("Processed player action. playerId[$playerId] session[$sessionId] action[$action]")
-            table.processPlayerAction(playerId, action, now)
+            val updated = activeTable.table
+                .processPlayerAction(playerId, action, now)
                 .processPostAction(now)
-        }
-        saveTable(activeTable.id, updated, activeTable.finished, activeTable.playerSockets, now)
-    }
-
-    fun saveTable(tableId: UUID, table: Table, finished: Boolean, playerSockets: List<Socket>, now: Instant) {
-        if (finished) return
-        if (table.isFinished) {
-            historicRepository.saveHand(tableId, table)
-            if (table.finishedAt != null && table.finishedAt.plusSeconds(5).isBefore(now)) {
-                val nextHand = table.startNextHand(now = now)
-                activeRepository.set(
-                    tableId,
-                    ActiveTable(
-                        tableId,
-                        nextHand,
-                        playerSockets.map { it.copy(tableId = tableId, handVersion = 0, version = 0) },
-                        false,
-                    ),
-                    withLock = false
-                )
-                activeRepository.set(tableId, ActiveTable(tableId, table, playerSockets, true), withLock = false)
-            } else {
-                activeRepository.set(tableId, ActiveTable(tableId, table, playerSockets, false), withLock = false)
-            }
-        } else {
-            activeRepository.set(tableId, ActiveTable(tableId, table, playerSockets, false), withLock = false)
+            activeRepository.set(activeTable.id, activeTable.copy(table = updated), withLock = false)
+            activeTable
         }
     }
 

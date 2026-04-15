@@ -12,8 +12,8 @@ interface ActiveTableStateRepository {
     fun getActiveTables(): List<ActiveTable>
     suspend fun performedLockedFunctionOnTables(work: suspend (List<ActiveTable>) -> Unit)
     fun get(id: UUID): ActiveTable?
-    suspend fun get(id: UUID, work: suspend (ActiveTable) -> Unit): Table?
-    fun getSession(sessionId: UUID): ActiveTable?
+    suspend fun get(id: UUID, work: suspend (ActiveTable) -> ActiveTable): Table?
+    fun getSession(sessionId: UUID): UUID?
     fun set(id: UUID, table: ActiveTable, withLock: Boolean = true)
 }
 

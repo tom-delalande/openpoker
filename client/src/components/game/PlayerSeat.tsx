@@ -16,6 +16,24 @@ interface PlayerSeatProps {
   showCards: boolean;
 }
 
+function ChipIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 29"
+      fill="none"
+      className={className}
+      style={{ width: '1em', height: '1em' }}
+    >
+      <circle cx="12" cy="20" r="7" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="20" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="16" r="7" fill="#fcd34d" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="16" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+      <circle cx="12" cy="12" r="7" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
+      <circle cx="12" cy="12" r="4" fill="none" stroke="#ca8a04" strokeWidth="0.75" />
+    </svg>
+  );
+}
+
 export function PlayerSeat({
   name,
   stack,
@@ -60,9 +78,13 @@ export function PlayerSeat({
           {isLocalPlayer ? 'You' : name}
         </div>
         {currentBet > 0 && (
-          <div className="text-blue-300 text-xs font-medium">{formatAmount(currentBet)}</div>
+          <div className="text-blue-300 text-xs font-medium flex items-center justify-center gap-0.5">
+            <ChipIcon className="w-3 h-3" />
+            {formatAmount(currentBet)}
+          </div>
         )}
-        <div className={`font-bold ${stack < 100 ? 'text-red-400' : 'text-yellow-400'}`}>
+        <div className={`font-bold flex items-center justify-center gap-0.5 ${stack < 100 ? 'text-red-400' : 'text-yellow-400'}`}>
+          <ChipIcon className="w-3.5 h-3.5" />
           {formatAmount(stack)}
         </div>
         {hasFolded && (
