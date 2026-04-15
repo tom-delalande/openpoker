@@ -881,6 +881,103 @@ class TableLogicTest {
         assertEquals(StandUp(2, 995.0), table.rounds.last().actions.last())
     }
 
+    @Test
+    fun `heads up game starts correctly`() {
+        val seedGenerator = { 1L }
+        var table = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDealerSeat(0)
+            withDefaultPlayers(2)
+            withBlinds(
+                smallBlind = 5.0,
+                bigBlind = 10.0,
+            )
+        }
+
+        var now = wellKnownTimestamp
+        table = table.processTable(now, seedGenerator)
+        table = table.processTable(now, seedGenerator)
+
+        // Player Order
+
+        assertEquals(0, table.players[0].seat)
+        assertEquals(1, table.players[0].playerId)
+
+        assertEquals(1, table.players[1].seat)
+        assertEquals(2, table.players[1].playerId)
+
+
+        // Small Blind
+
+        var actionIndex = 6
+        assertEquals(
+            PostSmallBlind(
+                playerId = 2,
+                amount = 5.0,
+                isAllIn = false,
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        // Big Blind
+        assertEquals(
+            PostBigBlind(
+                playerId = 1,
+                amount = 10.0,
+                isAllIn = false,
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        // Private Cards
+        table = table.processTable(now, seedGenerator)
+
+        assertEquals(
+            DealCards(
+                playerId = 2,
+                cards = listOf("10s".c(), "12c".c()),
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        assertEquals(
+            DealCards(
+                playerId = 1,
+                cards = listOf("11d".c(), "1s".c()),
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        //
+        assertEquals(
+            RequestAction(
+                playerId = 2,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Call(amount = 5.0),
+                    ActionOption.Raise(minAmount = 20.0, maxAmount = 995.0)
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        table = table.processPlayerAction(
+            playerId = 2,
+            action = PlayerActionRequest.Call(playerId = 2, amount = 5.0),
+            now = now
+        )
+
+        assertEquals(
+            Call(
+                playerId = 2,
+                amount = 5.0,
+                isAllIn = false,
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+    }
+
     val wellKnownPreFlopActions = listOf(
         SitDown(playerId = 1, playerName = "Player 1", seat = 0, stack = 1000.0),
         SitDown(playerId = 2, playerName = "Player 2", seat = 1, stack = 1000.0),
@@ -915,6 +1012,8 @@ class TableLogicTest {
             expiry = now.plusSeconds(10)
         ),
     )
+
+
     // TODO: add a test with early all ins
     // TODO: add a test with 2 winners
     // TODO: add a test with split pot (all in with smaller stack and wins)

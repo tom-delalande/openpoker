@@ -88,7 +88,7 @@ private fun Table.dealCards(): Table {
     }
 }
 
-fun Table.nextHandPlayers() = players
+fun Table.nextHandPlayers() = activePlayers
     .mapIndexed { index, player ->
         player.copy(
             isSittingOut = false,
@@ -105,7 +105,7 @@ fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLo
         return finishHand(now)
     }
 
-    if (!isStarted && players.size >= 3) {
+    if (!isStarted && players.size >= minPlayers) {
         return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator(), now = now, includePreFlopEvents = true)
     }
     if (isFinished && finishedAt?.plusSeconds(5)?.isBefore(now) == true) {

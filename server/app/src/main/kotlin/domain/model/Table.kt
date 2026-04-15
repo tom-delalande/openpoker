@@ -16,6 +16,8 @@ data class Table(
     val handVersion: Int = 0,
     val gameType: GameType,
     val betLimit: BetLimit,
+    val minPlayers: Int = 3,
+    val maxPlayers: Int = 9,
     val tableSize: Int,
     val dealerSeat: Int,
     val smallBlindAmount: Double,
@@ -49,7 +51,7 @@ data class Table(
         get() = players.find { it.seat == dealerSeat + 1 }
 
     val bigBlindPlayer: LivePlayerInfo?
-        get() = players.find { it.seat == dealerSeat + 2 }
+        get() = if(players.size == 2) dealerPlayer else  players.find { it.seat == dealerSeat + 2 }
 
     val currentNumberOfCards: Int
         get() = rounds.sumOf {
@@ -341,18 +343,18 @@ data class Table(
         }
 
     val lastActivePlayerToAct: LivePlayerInfo?
-        get() = players .find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
+        get() = players.find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
 
     fun LivePlayerInfo.nextPlayerToAct(): LivePlayerInfo {
         return players.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(seat + 1)
-            .first { !it.isOut && !it.isAllIn && !it.isSittingOut }
+            .first { !it.isOut && !it.isAllIn && !it.isSittingOut && this.playerId != it.playerId }
     }
 
     val nextPlayerToAct: LivePlayerInfo
         get() = lastActivePlayerToAct?.nextPlayerToAct() ?: firstActivePlayerAfterDealer
 
     val firstActivePlayerAfterDealer: LivePlayerInfo
-        get() =  players.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(dealerSeat + 1).first()
+        get() = players.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(dealerSeat + 1).first()
 
     val activePlayers: List<LivePlayerInfo>
         get() = players.filterNot { it.isSittingOut }
