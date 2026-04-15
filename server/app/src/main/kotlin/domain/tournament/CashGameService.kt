@@ -1,8 +1,8 @@
 package domain.tournament
 
-import domain.table.ActiveTableStateRepository
 import domain.table.TableService
 import java.util.UUID
+import kotlin.math.max
 
 class CashGameService(
     private val repository: CashGameRepository,
@@ -24,7 +24,7 @@ class CashGameService(
 
     suspend fun processTables() {
         val games = repository.get()
-        games.map { game ->
+        games.forEach { game ->
             val playerUpdates = tableService.process(game.tableId)
             if (playerUpdates == null) {
                 repository.delete(game.id)
@@ -35,6 +35,9 @@ class CashGameService(
                     }
                     updatePlayerStack(it.key, it.value.stack)
                 }
+            }
+            if (game.players.isEmpty()) {
+                repository.delete(game.id)
             }
         }
     }
@@ -49,7 +52,7 @@ class CashGameService(
 
     fun updatePlayerStack(playerId: Int, stack: Double) {
         val player = repository.getPlayer(playerId)
-        repository.setPlayer(playerId, player.copy(stack = stack))
+        repository.setPlayer(playerId, player.copy(stack = max(stack, defaultStack)))
     }
 
     fun removePlayer(gameId: UUID, playerId: Int) {

@@ -126,9 +126,14 @@ class TableService(
             val events = updated.toEvents()
             val updatedSockets = mutableListOf<Socket>()
             for (playerSocket in activeTable.playerSockets) {
+                val version = if (updated.handVersion == playerSocket.handVersion) {
+                    playerSocket.version
+                } else {
+                    0
+                }
                 if (playerSocket.tableId != tableId) continue
                 val playerEvents = events
-                    .drop(playerSocket.version)
+                    .drop(version)
                     .prepareForPlayer(playerSocket.playerId)
 
                 val session = sessions[playerSocket.sessionId]
@@ -154,6 +159,14 @@ class TableService(
                     event.stack,
                     false,
                 ))
+
+                is Table.Round.Action.HandEnded -> {
+                    val editable = players.toMutableMap()
+                    event.playerStacks.forEach {
+                        editable[it.playerId] = editable[it.playerId]!!.copy(stack = it.stack)
+                    }
+                    editable
+                }
 
                 else -> players
             }

@@ -2,6 +2,7 @@ package data.postgres
 
 import java.sql.Types
 import java.util.UUID
+import kotlin.jvm.optionals.getOrNull
 import kotlinx.serialization.json.Json
 import org.springframework.jdbc.core.simple.JdbcClient
 import server.AuthRepository
@@ -31,6 +32,6 @@ class PostgresAuthRepository(
             .param("token", token)
             .query { result, _ ->
                 Json.decodeFromString<AuthRepository.PlayerInfo>(result.getString("payload"))
-            }.single()
+            }.optional().getOrNull()
     }
 }

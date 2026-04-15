@@ -1001,6 +1001,202 @@ class TableLogicTest {
         }
     }
 
+    @Test
+    fun `pre-flop, dealer all in, fold, call`() {
+        val seedGenerator = { 1L }
+        var table = givenWellKnownTournamentTable {
+            withSeed(1)
+            withDealerSeat(0)
+            withDefaultPlayers(3)
+            withBlinds(
+                smallBlind = 5.0,
+                bigBlind = 10.0,
+            )
+        }
+
+        var now = wellKnownTimestamp
+        table = table.processTable(now, seedGenerator)
+        table = table.processTable(now, seedGenerator)
+
+        // Player Order
+
+        assertEquals(0, table.livePlayers[0].seat)
+        assertEquals(1, table.livePlayers[0].playerId)
+
+        assertEquals(1, table.livePlayers[1].seat)
+        assertEquals(2, table.livePlayers[1].playerId)
+
+        assertEquals(2, table.livePlayers[2].seat)
+        assertEquals(3, table.livePlayers[2].playerId)
+
+
+        // Small Blind
+
+        var actionIndex = 8
+        assertEquals(
+            PostSmallBlind(
+                playerId = 2,
+                amount = 5.0,
+                isAllIn = false,
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        // Big Blind
+        assertEquals(
+            PostBigBlind(
+                playerId = 3,
+                amount = 10.0,
+                isAllIn = false,
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        // Private Cards
+        table = table.processTable(now, seedGenerator)
+
+        assertEquals(
+            DealCards(
+                playerId = 2,
+                cards = listOf("11d".c(), "1s".c()),
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        assertEquals(
+            DealCards(
+                playerId = 3,
+                cards = listOf("1h".c(), "2d".c()),
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        assertEquals(
+            DealCards(
+                playerId = 1,
+                cards = listOf("10s".c(), "12c".c()),
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        // UTG
+        assertEquals(
+            RequestAction(
+                playerId = 1,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Call(amount = 10.0),
+                    ActionOption.Raise(minAmount = 20.0, maxAmount = 1000.0)
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        table = table.processPlayerAction(
+            playerId = 1,
+            action = PlayerActionRequest.Raise(playerId = 1, amount = 1000.0),
+            now = now
+        )
+
+        assertEquals(
+            Raise(
+                playerId = 1,
+                amount = 1000.0,
+                isAllIn = true,
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        // Small Blind calls BB amount
+        table = table.processTable(now, seedGenerator)
+        assertEquals(
+            RequestAction(
+                playerId = 2,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Call(amount = 995.0),
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        table = table.processPlayerAction(
+            playerId = 2,
+            action = PlayerActionRequest.Fold(playerId = 2),
+            now = now
+        )
+
+        assertEquals(
+            Fold(playerId = 2),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        // Big blind checks
+        table = table.processTable(now, seedGenerator)
+        assertEquals(
+            RequestAction(
+                playerId = 3,
+                actionOptions = listOf(
+                    ActionOption.Fold,
+                    ActionOption.Call(amount = 990.0),
+                ),
+                expiry = now.plusSeconds(10)
+            ),
+            table.rounds[0].actions[actionIndex++],
+        )
+
+        table = table.processPlayerAction(
+            playerId = 3,
+            action = PlayerActionRequest.Call(playerId = 3, amount = 990.0),
+            now = now
+        )
+        assertEquals(Call(playerId = 3, amount = 990.0, isAllIn = true), table.rounds[0].actions[actionIndex++])
+
+        table = table.processTable(now, seedGenerator)
+
+        assertEquals(
+            listOf(
+                Table.Round.Action.RoundStarted(1, Table.Round.Street.Flop),
+                Table.Round.Action.DealCommunityCards(cards = listOf("8d".c(), "4s".c(), "11c".c()))
+            ), table.rounds[1].actions
+        )
+
+        assertEquals(
+            listOf(
+                Table.Round.Action.RoundStarted(2, Table.Round.Street.Turn),
+                Table.Round.Action.DealCommunityCards(cards = listOf("3d".c()))
+            ), table.rounds[2].actions
+        )
+
+        assertEquals(
+            listOf(
+                Table.Round.Action.RoundStarted(3, Table.Round.Street.River),
+                Table.Round.Action.DealCommunityCards(cards = listOf("6s".c()))
+            ), table.rounds[3].actions
+        )
+
+        assertEquals(
+            listOf(
+                Table.Round.Action.RoundStarted(4, Table.Round.Street.Showdown),
+                ShowCards(playerId = 1, cards = listOf("10s".c(), "12c".c())),
+                ShowCards(playerId = 3, cards = listOf("1h".c(), "2d".c())),
+                Table.Round.Action.PlayerAction.StandUp(playerId = 3, stack = 0.0),
+                Table.Round.Action.HandEnded(
+                    playerStacks = listOf(
+                        Table.Round.Action.PlayerStack(1, 2005.0),
+                        Table.Round.Action.PlayerStack(2, 995.0),
+                        Table.Round.Action.PlayerStack(3, 0.0)
+                    )
+                )
+            ), table.rounds[4].actions
+        )
+
+        val nextHand = table.processTable(now.plusSeconds(10))
+        println(nextHand)
+    }
+
     // TODO: add a test with early all ins
     // TODO: add a test with 2 winners
     // TODO: add a test with split pot (all in with smaller stack and wins)

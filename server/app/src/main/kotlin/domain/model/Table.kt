@@ -28,7 +28,6 @@ data class Table(
     val startedAt: Instant? = null,
     val finishedAt: Instant? = null,
     val seed: Long,
-    val players: List<Player> = emptyList(),
 ) {
     val currentRound: Round?
         get() = rounds.lastOrNull()
@@ -275,7 +274,15 @@ data class Table(
             data object HandStarted : Action
 
             @Serializable
-            data object HandEnded : Action
+            data class HandEnded(
+                val playerStacks: List<PlayerStack>,
+            ) : Action
+
+            @Serializable
+            data class PlayerStack(
+                val playerId: Int,
+                val stack: Double,
+            )
 
             @Serializable
             data class RoundStarted(
@@ -336,7 +343,7 @@ data class Table(
     val lastActivePlayerToAct: LivePlayerInfo
         get() = livePlayers
             .find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
-            ?: smallBlindPlayer
+            ?: dealerPlayer
 
     fun LivePlayerInfo.nextPlayerToAct(): LivePlayerInfo {
         return livePlayers.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(seat + 1)
@@ -354,7 +361,7 @@ data class Table(
         get() = rounds.flatMap { it.actions }.fold(listOf()) { players, action ->
             when (action) {
                 Round.Action.HandStarted -> players
-                Round.Action.HandEnded -> players.map { it.copy(isAllIn = false) }
+                is Round.Action.HandEnded -> players.map { it.copy(isAllIn = false) }
                 is Round.Action.RoundStarted -> players
                     .filterNot { it.isSittingOut }
                     .map { it.copy(contributionThisStreet = 0.0) }
@@ -366,6 +373,7 @@ data class Table(
                             playerId = action.playerId,
                             seat = action.seat,
                             name = action.playerName,
+                            initialStack = action.stack,
                             stack = action.stack,
                             isAllIn = false,
                         )
@@ -449,6 +457,7 @@ data class Table(
                             playerId = action.playerId,
                             seat = action.seat,
                             name = action.playerName,
+                            initialStack = action.stack,
                             stack = action.stack,
                         )
 
@@ -475,6 +484,7 @@ data class Table(
         val playerId: Int,
         val seat: Int,
         val name: String,
+        val initialStack: Double,
         val stack: Double,
         val contributionThisStreet: Double = 0.0,
         val isOut: Boolean = false,
