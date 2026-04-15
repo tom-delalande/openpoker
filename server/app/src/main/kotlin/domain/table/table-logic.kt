@@ -29,7 +29,6 @@ fun createTable(
     seed: Long = Random.nextLong(),
 ): Table {
     val table = Table(
-        handId = UUID.randomUUID(),
         gameType = Table.GameType.HoldEm,
         // TODO: [medium] this is unused
         betLimit = Table.BetLimit(
@@ -63,10 +62,17 @@ fun createTable(
 }
 
 fun Table.addPlayer(player: CashGameRepository.Player): Table {
-    return if (livePlayers.any { it.playerId == player.id }) {
+    return if (livePlayers.any { it.playerId == player.id && !it.isSittingOut }) {
         copy()
     } else {
-        appendAction(SitDown(player.id, player.name, livePlayers.size, player.stack))
+        appendAction(
+            SitDown(
+                player.id,
+                player.name,
+                (0..9).first { !livePlayers.map { it.seat }.contains(it) },
+                player.stack
+            )
+        )
     }
 }
 
@@ -86,9 +92,10 @@ private fun Table.dealCards(): Table {
 }
 
 fun Table.nextHandPlayers() = livePlayers
-    .map { player ->
+    .mapIndexed { index, player ->
         player.copy(
             isSittingOut = false,
+            seat = index,
             stack = player.stack + pots.flatMap { it.playerWins }
                 .filter { it.playerId == player.playerId }
                 .sumOf { it.winAmount }
@@ -97,16 +104,18 @@ fun Table.nextHandPlayers() = livePlayers
     .filter { player -> player.stack > 0 }
 
 fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLong() }): Table {
-    if (isFinished) return this
-
-    if (livePlayers.count { !it.isSittingOut } < 2) {
+    if (!isFinished && isStarted && livePlayers.count { !it.isSittingOut } < 2) {
         return finishHand(now)
     }
 
     if (!isStarted && livePlayers.size >= 3) {
         return startNextHand(dealerSeat = dealerSeat, seed = seedGenerator(), now = now)
     }
+    if (isFinished && finishedAt?.plusSeconds(5)?.isBefore(now) == true) {
+        return startNextHand(dealerSeat = dealerSeat.nextSeat(), seed = seedGenerator(), now = now)
+    }
 
+    if (isFinished) return this
     return when (val latestAction = currentRound?.actions?.lastOrNull()) {
         is RequestAction -> {
             if (latestAction.expiry.isBefore(now) || livePlayers.find { it.playerId == latestAction.playerId }?.isSittingOut == true) {
@@ -135,7 +144,7 @@ fun Table.startNextHand(
         return copy()
     }
     return copy(
-        handId = UUID.randomUUID(),
+        handVersion = handVersion + 1,
         dealerSeat = dealerSeat,
         isStarted = true,
         startedAt = now,
@@ -222,7 +231,7 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
     }
 
     val actionOptions = lastAction.actionOptions
-    val player = livePlayers.first { it.playerId == playerId }
+    val player = livePlayers.first { it.playerId == playerId && !it.isSittingOut }
 
     val actionAllowed = when (action) {
         is PlayerActionRequest.Bet -> actionOptions.filterIsInstance<ActionOption.Bet>()
@@ -435,7 +444,7 @@ private fun Table.attemptFinishRound(now: Instant): Table {
         } else if (currentRound?.street == Round.Street.PreFlop && playerRoundActions.any { it.playerId == bigBlindPlayer.nextPlayerToAct().playerId && (it is Check || it is Fold || it is Raise || it is Bet || it is Call) }) {
             playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
             // TODO: [low] add  test to check if this breaks when UTG folds
-                ?: livePlayers.find { it.seat == bigBlindPlayer.seat.nextSeat() }?.playerId
+                ?: bigBlindPlayer.nextPlayerToAct().playerId
         } else {
             playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
         }
@@ -502,7 +511,8 @@ private fun Table.finishHand(now: Instant): Table {
         .lastOrNull { it is Bet || it is Raise }
         ?.playerId ?: smallBlindPlayer.playerId
 
-    val firstSeatToShow = livePlayers.find { it.playerId == firstPlayerToShow }?.seat ?: smallBlindPlayer.seat
+    val firstSeatToShow = livePlayers.filterNot { it.isSittingOut }.find { it.playerId == firstPlayerToShow }?.seat
+        ?: smallBlindPlayer.seat
     val players = livePlayers.sortedBy { it.seat }.shift(firstSeatToShow).filterNot { it.isOut }
 
     val pots = listOf(

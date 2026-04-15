@@ -40,6 +40,8 @@ class PostgresCashGameRepository(
             """
             INSERT INTO cash_games (id, payload)
             VALUES (:id, :payload)
+            ON CONFLICT (id) DO UPDATE
+                SET payload = :payload
         """.trimIndent()
         )
             .param("id", id)

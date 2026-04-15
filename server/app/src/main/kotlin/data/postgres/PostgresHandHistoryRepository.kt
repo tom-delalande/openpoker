@@ -12,6 +12,7 @@ class PostgresHandHistoryRepository(
 ) : HandHistoryRepository {
 
     override fun saveHand(tableId: UUID, hand: Table) {
+        return // TODO: re-enable
         val openHandHistory = hand.toOpenHandHistory()
 
         jdbcClient.sql(
@@ -21,7 +22,7 @@ class PostgresHandHistoryRepository(
         """.trimIndent()
         )
             .param("tableId", tableId)
-            .param("handId", hand.handId)
+            .param("handId", UUID.randomUUID())
             .param("payload", Json.encodeToString(openHandHistory), Types.OTHER)
             .update()
     }

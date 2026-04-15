@@ -8,13 +8,12 @@ package domain.model
 import common.InstantSerializer
 import common.UUIDSerializer
 import java.time.Instant
-import java.util.UUID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 
 @Serializable
 data class Table(
-    val handId: UUID,
+    val handVersion: Int = 0,
     val gameType: GameType,
     val betLimit: BetLimit,
     val tableSize: Int,
@@ -45,7 +44,7 @@ data class Table(
             .getOrElse(2) { 0.0 }
 
     val dealerPlayer: LivePlayerInfo
-        get() = livePlayers.sortedBy { it.seat }.shift(dealerSeat).first()
+        get() = livePlayers.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(dealerSeat).first()
 
     val smallBlindPlayer: LivePlayerInfo
         get() = dealerPlayer.nextPlayer()
@@ -340,11 +339,12 @@ data class Table(
             ?: smallBlindPlayer
 
     fun LivePlayerInfo.nextPlayerToAct(): LivePlayerInfo {
-        return livePlayers.sortedBy { it.seat }.shift(seat + 1).first { !it.isOut && !it.isAllIn && !it.isSittingOut }
+        return livePlayers.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(seat + 1)
+            .first { !it.isOut && !it.isAllIn && !it.isSittingOut }
     }
 
     fun LivePlayerInfo.nextPlayer(): LivePlayerInfo {
-        return livePlayers.sortedBy { it.seat }.shift(seat + 1).first()
+        return livePlayers.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(seat + 1).first()
     }
 
     val nextPlayerToAct: LivePlayerInfo
@@ -445,7 +445,7 @@ data class Table(
                             lastAction = action,
                         )
 
-                        is Round.Action.PlayerAction.SitDown -> return@fold players + LivePlayerInfo(
+                        is Round.Action.PlayerAction.SitDown -> return@fold players.filterNot { it.playerId == action.playerId } + LivePlayerInfo(
                             playerId = action.playerId,
                             seat = action.seat,
                             name = action.playerName,
@@ -454,7 +454,7 @@ data class Table(
 
                         is Round.Action.PlayerAction.StandUp -> return@fold players.map {
                             if (it.playerId == action.playerId) it.copy(
-                                isSittingOut = true
+                                isSittingOut = true,
                             ) else it
                         }
 

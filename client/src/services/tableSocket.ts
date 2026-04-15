@@ -14,10 +14,12 @@ class TableSocket {
   private reconnectDelay = 1000;
   private tableId: string | null = null;
   private token: string | null = null;
+  private isDisconnecting = false;
 
   connect(tableId: string, token: string): void {
     this.tableId = tableId;
     this.token = token;
+    this.isDisconnecting = false;
 
     console.log(`[TableSocket] Connecting to table ${tableId}`);
 
@@ -42,10 +44,18 @@ class TableSocket {
       useGameStore.getState().setError(null);
     };
 
-    this.ws.onclose = () => {
-      console.log('WebSocket disconnected');
+    this.ws.onclose = (event) => {
+      console.log('WebSocket disconnected', event.code);
       useGameStore.getState().setConnected(false);
-      this.attemptReconnect();
+
+      if (this.isDisconnecting) {
+        this.isDisconnecting = false;
+        return;
+      }
+
+      console.log('Server closed connection - leaving table');
+      useGameStore.getState().reset();
+      useGameStore.getState().setCurrentView('home');
     };
 
     this.ws.onerror = (error) => {
@@ -105,6 +115,7 @@ class TableSocket {
   }
 
   disconnect(): void {
+    this.isDisconnecting = true;
     this.tableId = null;
     this.token = null;
     this.reconnectAttempts = this.maxReconnectAttempts;

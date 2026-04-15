@@ -101,6 +101,8 @@ fun Route.tableEndpoints(
                                 player.playerId,
                                 listOf(playerAction.toDomain(player.playerId))
                             )
+                        } catch (exception: TableService.SessionClosedException) {
+                            throw exception
                         } catch (exception: Exception) {
                             logger.error("WebSocket exception: ${exception.localizedMessage}", exception)
                         }

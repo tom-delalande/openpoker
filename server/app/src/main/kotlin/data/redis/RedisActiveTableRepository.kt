@@ -4,9 +4,10 @@ import app.logger
 import domain.model.Table
 import domain.table.ActiveTable
 import domain.table.ActiveTableStateRepository
-import domain.table.Socket
+import java.time.Duration
 import kotlinx.serialization.json.Json
 import java.util.UUID
+import java.time.Instant
 import redis.clients.jedis.RedisClient
 import redis.clients.jedis.params.SetParams
 
@@ -27,7 +28,7 @@ class RedisActiveTableRepository(
     private fun tableKey(id: UUID) = "$TABLE_KEY_PREFIX$id"
     private fun sessionKey(sessionId: UUID) = "$SESSION_KEY_PREFIX$sessionId"
 
-    private fun acquireLock(): String? {
+    private fun acquireLock(): String {
         val lockValue = UUID.randomUUID().toString()
         val params = SetParams().nx().ex(LOCK_EXPIRY_SECONDS)
         while (true) {
@@ -59,7 +60,7 @@ class RedisActiveTableRepository(
     }
 
     override fun getActiveTables(): List<ActiveTable> {
-        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        val lockValue = acquireLock()
         return try {
             val keys = redisClient.keys("$TABLE_KEY_PREFIX*")
             keys.mapNotNull { key ->
@@ -114,7 +115,7 @@ class RedisActiveTableRepository(
 
     override suspend fun get(id: UUID, work: suspend (ActiveTable) -> Unit): Table? {
         // TODO: [low] scope this lock to the table
-        val lockValue = acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
+        val lockValue = acquireLock()
         try {
             val data = redisClient.get(tableKey(id))
             if (data != null) {
@@ -163,24 +164,21 @@ class RedisActiveTableRepository(
 
     override fun set(
         id: UUID,
-        table: Table,
-        finished: Boolean,
-        playerSockets: List<Socket>,
+        table: ActiveTable,
         withLock: Boolean,
     ) {
         val lockValue = if (withLock) {
             acquireLock() ?: throw IllegalStateException("Failed to acquire lock")
         } else null
         try {
-            val activeTable = ActiveTable(id, table, playerSockets, finished)
             try {
-                redisClient.set(tableKey(id), json.encodeToString(activeTable))
-                if (!finished) {
-                    playerSockets.forEach { socket ->
+                redisClient.set(tableKey(id), json.encodeToString(table))
+                if (!table.finished) {
+                    table.playerSockets.forEach { socket ->
                         redisClient.set(sessionKey(socket.sessionId), id.toString())
                     }
                 } else {
-                    playerSockets.forEach { socket ->
+                    table.playerSockets.forEach { socket ->
                         redisClient.del(sessionKey(socket.sessionId))
                     }
                 }

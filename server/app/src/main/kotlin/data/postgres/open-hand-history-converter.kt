@@ -11,6 +11,7 @@ import domain.model.Round
 import domain.model.RoundStreet
 import domain.model.Table
 import domain.model.OPEN_HAND_HISTORY_SPEC_VERSION
+import java.util.UUID
 
 fun Table.toOpenHandHistory() = OpenHandHistoryDocument(
     ohh = OpenHandHistory(
@@ -20,9 +21,9 @@ fun Table.toOpenHandHistory() = OpenHandHistoryDocument(
         internalVersion = OPEN_HAND_HISTORY_SPEC_VERSION,
         tournament = false,
         tournamentInfo = null,
-        gameNumber = handId.toString(),
+        gameNumber = UUID.randomUUID().toString(),
         startDateUtc = startedAt!!.toString(),
-        tableName = "Table ${handId.toString().take(8)}",
+        tableName = "Table",
         tableHandle = null,
         tableSkin = null,
         gameType = GameType.HOLD_EM,
@@ -40,11 +41,11 @@ fun Table.toOpenHandHistory() = OpenHandHistoryDocument(
         anteAmount = anteAmount,
         heroPlayerId = null,
         flags = null,
-        players = livePlayers.map { player ->
+        players = livePlayers.filterNot { it.isSittingOut }.map { player ->
             Player(
                 name = player.name,
                 id = player.playerId,
-                seat = player.seat,
+                seat = player.seat!!,
                 startingStack = player.stack,
                 playerBounty = null,
                 display = null,

@@ -10,3 +10,6 @@
 - Delete finished table from Redis
 
 - The same player can join the same table twice and break everything
+
+- Stack isn't updated when leaving table (need to refresh)
+- Can rejoin but the player sits on an exsting seat

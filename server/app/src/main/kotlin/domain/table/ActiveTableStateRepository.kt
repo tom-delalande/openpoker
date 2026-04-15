@@ -14,7 +14,7 @@ interface ActiveTableStateRepository {
     fun get(id: UUID): ActiveTable?
     suspend fun get(id: UUID, work: suspend (ActiveTable) -> Unit): Table?
     fun getSession(sessionId: UUID): ActiveTable?
-    fun set(id: UUID, table: Table, finished: Boolean, playerSockets: List<Socket>, withLock: Boolean = true)
+    fun set(id: UUID, table: ActiveTable, withLock: Boolean = true)
 }
 
 @Serializable
@@ -24,6 +24,7 @@ data class ActiveTable(val id: UUID, val table: Table, val playerSockets: List<S
 data class Socket(
     val playerId: Int,
     val sessionId: UUID,
-    val currentHandId: UUID,
+    val tableId: UUID,
+    val handVersion: Int,
     val version: Int,
 )

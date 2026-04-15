@@ -98,16 +98,21 @@ class TableService(
                 val events = updated.toEvents()
                 val updatedSockets = mutableListOf<Socket>()
                 for (playerSocket in sockets) {
-                    if (playerSocket.currentHandId != tableId) continue
+                    val version = if (updated.handVersion == playerSocket.handVersion) {
+                        playerSocket.version
+                    } else {
+                        0
+                    }
+                    if (playerSocket.tableId != tableId) continue
                     val playerEvents = events
-                        .drop(playerSocket.version)
+                        .drop(version)
                         .prepareForPlayer(playerSocket.playerId)
 
                     val session = sessions[playerSocket.sessionId]
                     for (event in playerEvents) {
                         session?.emit(event)
                     }
-                    updatedSockets.add(playerSocket.copy(version = events.size))
+                    updatedSockets.add(playerSocket.copy(handVersion = updated.handVersion, version = events.size))
                 }
 
                 saveTable(tableId, updated, finished, updatedSockets.toList(), now)
@@ -121,7 +126,7 @@ class TableService(
             val events = updated.toEvents()
             val updatedSockets = mutableListOf<Socket>()
             for (playerSocket in activeTable.playerSockets) {
-                if (playerSocket.currentHandId != tableId) continue
+                if (playerSocket.tableId != tableId) continue
                 val playerEvents = events
                     .drop(playerSocket.version)
                     .prepareForPlayer(playerSocket.playerId)
@@ -130,7 +135,7 @@ class TableService(
                 for (event in playerEvents) {
                     session?.emit(event)
                 }
-                updatedSockets.add(playerSocket.copy(version = events.size))
+                updatedSockets.add(playerSocket.copy(handVersion = updated.handVersion, version = events.size))
             }
 
             saveTable(tableId, updated, activeTable.finished, updatedSockets.toList(), now)
@@ -141,13 +146,13 @@ class TableService(
                 is Table.Round.Action.PlayerAction.StandUp -> players + (event.playerId to CashGameService.PlayerDataResponse(
                     event.playerId,
                     event.stack,
-                    false,
+                    true,
                 ))
 
                 is Table.Round.Action.PlayerAction.SitDown -> players + (event.playerId to CashGameService.PlayerDataResponse(
                     event.playerId,
                     event.stack,
-                    true,
+                    false,
                 ))
 
                 else -> players
@@ -155,33 +160,27 @@ class TableService(
         }
     }
 
-    val mutex = Mutex()
     suspend fun addWebSocketConnection(playerId: Int, tableId: UUID, sessionId: UUID, now: Instant) {
-        // TODO: [low] there has got a better way to prevent websockets from over-writting each other here -> Test case TODO [1]
-        mutex.withLock {
-            val table = activeRepository.get(tableId) ?: throw IllegalStateException()
-            saveTable(
+        activeRepository.get(tableId) { table ->
+            activeRepository.set(
                 tableId,
-                table.table,
-                table.finished,
-                table.playerSockets + Socket(playerId, sessionId, tableId, 0),
-                now
+                table.copy(playerSockets = table.playerSockets + Socket(playerId, sessionId, tableId, 0, 0)),
+                withLock = false,
             )
         }
     }
 
     suspend fun removeWebSocketConnection(tableId: UUID, sessionId: UUID, now: Instant) {
-        mutex.withLock {
-            val table = activeRepository.get(tableId) ?: throw IllegalStateException()
-            saveTable(
+        activeRepository.get(tableId) { table ->
+            activeRepository.set(
                 tableId,
-                table.table,
-                table.finished,
-                table.playerSockets.filterNot { it.sessionId == sessionId },
-                now
+                table.copy(playerSockets = table.playerSockets.filterNot { it.sessionId == sessionId }),
+                withLock = false,
             )
         }
     }
+
+    class SessionClosedException : Exception()
 
     fun receivePlayerActions(
         sessionId: UUID,
@@ -190,7 +189,7 @@ class TableService(
         now: Instant = Instant.now(),
     ) {
         val activeTable = activeRepository.getSession(sessionId)
-            ?: throw IllegalStateException("Session not found sessionId[$sessionId] playerId[$playerId]")
+            ?: throw SessionClosedException()
         val updated = actions.fold(activeTable.table) { table, action ->
             logger.info("Processed player action. playerId[$playerId] session[$sessionId] action[$action]")
             table.processPlayerAction(playerId, action, now)
@@ -199,26 +198,28 @@ class TableService(
         saveTable(activeTable.id, updated, activeTable.finished, activeTable.playerSockets, now)
     }
 
-    fun saveTable(id: UUID, table: Table, finished: Boolean, playerSockets: List<Socket>, now: Instant) {
+    fun saveTable(tableId: UUID, table: Table, finished: Boolean, playerSockets: List<Socket>, now: Instant) {
         if (finished) return
         if (table.isFinished) {
-            historicRepository.saveHand(id, table)
+            historicRepository.saveHand(tableId, table)
             if (table.finishedAt != null && table.finishedAt.plusSeconds(5).isBefore(now)) {
-                val nextHandId = UUID.randomUUID()
                 val nextHand = table.startNextHand(now = now)
                 activeRepository.set(
-                    nextHandId,
-                    nextHand,
-                    false,
-                    playerSockets.map { it.copy(currentHandId = nextHandId, version = 0) },
+                    tableId,
+                    ActiveTable(
+                        tableId,
+                        nextHand,
+                        playerSockets.map { it.copy(tableId = tableId, handVersion = 0, version = 0) },
+                        false,
+                    ),
                     withLock = false
                 )
-                activeRepository.set(id, table, true, playerSockets, withLock = false)
+                activeRepository.set(tableId, ActiveTable(tableId, table, playerSockets, true), withLock = false)
             } else {
-                activeRepository.set(id, table, false, playerSockets, withLock = false)
+                activeRepository.set(tableId, ActiveTable(tableId, table, playerSockets, false), withLock = false)
             }
         } else {
-            activeRepository.set(id, table, false, playerSockets, withLock = false)
+            activeRepository.set(tableId, ActiveTable(tableId, table, playerSockets, false), withLock = false)
         }
     }
 
@@ -226,7 +227,15 @@ class TableService(
         val activeTable = activeRepository.get(id)
         val table = activeTable?.table ?: createTable()
         val updated = table.addPlayer(player)
-        activeRepository.set(id, updated, activeTable?.finished ?: false, activeTable?.playerSockets ?: emptyList())
+        activeRepository.set(
+            id,
+            ActiveTable(
+                id,
+                updated,
+                activeTable?.playerSockets ?: emptyList(),
+                activeTable?.finished ?: false
+            )
+        )
     }
 
     @OptIn(ExperimentalSerializationApi::class)
