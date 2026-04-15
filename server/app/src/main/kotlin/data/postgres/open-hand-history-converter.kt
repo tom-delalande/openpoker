@@ -41,7 +41,7 @@ fun Table.toOpenHandHistory() = OpenHandHistoryDocument(
         anteAmount = anteAmount,
         heroPlayerId = null,
         flags = null,
-        players = livePlayers.filterNot { it.isSittingOut }.map { player ->
+        players = players.filterNot { it.isSittingOut }.map { player ->
             Player(
                 name = player.name,
                 id = player.playerId,

@@ -2,41 +2,27 @@
 
 package domain.table
 
-import app.logger
-import app.module
 import data.inmemory.InMemoryActiveTableStateRepository
 import data.inmemory.InMemoryAuthRepository
 import data.inmemory.InMemoryCashGameRepository
 import data.inmemory.InMemoryHandHistoryRepository
 import domain.tournament.CashGameService
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
-import io.ktor.client.plugins.websocket.webSocketSession
-import io.ktor.client.request.post
-import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.install
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.cors.routing.CORS
-import io.ktor.server.routing.routing
-import io.ktor.server.testing.testApplication
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.websocket.*
+import io.ktor.client.request.*
+import io.ktor.serialization.kotlinx.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.routing.*
 import io.ktor.server.websocket.WebSockets
-import io.ktor.websocket.Frame
-import io.ktor.websocket.readText
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.test.assertEquals
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import io.ktor.websocket.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -45,12 +31,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import server.authEndpoints
 import server.gameEndpoints
-import server.models.HandEvent
-import server.models.PlayerAction
-import server.models.PlayerActionSitDown
-import server.models.SitDown
-import server.models.SitDownType
+import server.models.*
 import server.tableEndpoints
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.test.assertEquals
+import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
 
 class PlayerSocket(
     val playerId: Int,
@@ -145,18 +131,17 @@ class ServerIntegrationTest {
         }
 
         try {
-            val token: String = client.post("http://localhost:$serverPort/auth/login/testuser").body()
-            println("Token: $token")
+            val response: AuthResponse = client.post("http://localhost:$serverPort/auth/login/testuser").body()
 
             val tableId: String = client.post("http://localhost:$serverPort/game/join") {
                 url {
-                    parameters.append("token", token)
+                    parameters.append("token", response.token)
                 }
             }.body()
             println("Table ID: $tableId")
 
             val wsSession = client.webSocketSession(
-                "ws://localhost:$serverPort/table/ws/table/$tableId/token/$token"
+                "ws://localhost:$serverPort/table/ws/table/$tableId/token/$response"
             )
 
             val sitDownAction = PlayerActionSitDown(

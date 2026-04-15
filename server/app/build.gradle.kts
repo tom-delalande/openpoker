@@ -95,3 +95,7 @@ fabrikt {
         }
     }
 }
+
+tasks.named("assemble") {
+    dependsOn("app:fabrikGenerate")
+}

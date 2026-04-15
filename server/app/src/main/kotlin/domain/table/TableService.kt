@@ -10,8 +10,6 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.time.toKotlinInstant
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.ExperimentalSerializationApi
 import server.PlayerActionRequest
 import server.models.ActionOptionsBet
@@ -482,7 +480,7 @@ class TableService(
                 HandEventHandFinished(
                     value = HandFinished(
                         type = HandFinishedType.HAND_FINISHED,
-                        players = livePlayers.map { player ->
+                        players = players.map { player ->
                             PlayerStack(
                                 playerId = player.playerId,
                                 stack = player.stack + pots.flatMap { it.playerWins }
