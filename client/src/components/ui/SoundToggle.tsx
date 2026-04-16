@@ -30,8 +30,10 @@ export function SoundToggle() {
   }, []);
 
   const handleToggle = useCallback(() => {
-    sounds.playMenuClick();
     const newState = sounds.toggle();
+    if (newState) {
+      sounds.playMenuClick();
+    }
     setEnabled(newState);
   }, []);
 
