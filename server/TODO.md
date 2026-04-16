@@ -1,4 +1,3 @@
 
-- All-ins are still causing weird issues
-- Split pots
 - Validate hand history
+- Sometime refreshing just joins a dead table

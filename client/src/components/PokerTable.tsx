@@ -6,6 +6,8 @@ import { tableSocket } from '../services/tableSocket';
 import { processEvents } from '../store/gameEvents';
 import { formatAmount } from '../lib/cards';
 import { Button } from './ui/Button';
+import { SoundToggle } from './ui/SoundToggle';
+import { sounds } from '../lib/sounds';
 import { Card, PlayerSeat, ActionBar, CommunityCards, PotDisplay } from './game';
 
 interface ActionButton {
@@ -73,6 +75,7 @@ export function PokerTable() {
   const isMyTurn = currentPlayerId === playerId && actionOptions !== null;
 
   const handleLeaveTable = useCallback(() => {
+    sounds.playMenuNavigate();
     tableSocket.send({ kind: 'StandUp', value: { type: 'StandUp' } });
     tableSocket.disconnect();
     localStorage.removeItem('tableId');
@@ -118,6 +121,7 @@ export function PokerTable() {
   }, []);
 
   const handleAction = useCallback((button: ActionButton) => {
+    sounds.playMenuClick();
     switch (button.kind) {
       case 'Fold':
         sendAction({ kind: 'Fold', value: { type: 'Fold' } });
@@ -199,6 +203,7 @@ export function PokerTable() {
 
   return (
     <div className="min-h-screen bg-[#0f3020] flex flex-col pb-36">
+      <SoundToggle />
       <header className="flex items-center justify-between px-4 py-3 bg-[#0d3d22]/80 backdrop-blur-sm border-b border-[#1a5c32]">
         <Button variant="ghost" size="sm" onClick={handleLeaveTable}>
           ← Leave

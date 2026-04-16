@@ -1,7 +1,5 @@
 package domain.table
 
-import domain.model.Table
-import domain.model.Table.Round
 import domain.model.Table.Round.Street
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -136,5 +134,50 @@ class PokerScenarioTest {
             2 to 910.0,
             3 to 890.0
         )
+    }
+
+    @Test
+    fun `given a hand finished, next hand starts correctly`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(100.0, 1000.0, 1000.0),
+            cards = "9d 2d 7s 6s 1c 12c 11c 10c 9c 2c 3c"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().check()
+            p3().bet(10.0)
+            p1().raise(90.0)
+            p2().call(90.0)
+            p3().call(80.0)
+            dealTurn()
+            manually {
+                assertEquals(Street.Turn, it.currentRound?.street)
+            }
+            p2().check()
+            p3().bet(10.0)
+            p2().call(10.0)
+            dealRiver()
+            manually {
+                assertEquals(Street.River, it.currentRound?.street)
+            }
+            p2().check()
+            p3().check()
+            processTable(now = now.plusSeconds(10))
+            postBlinds()
+            dealHoleCards()
+            manually {
+                assertEquals(2, it.handVersion)
+            }
+            p2().call(10.0)
+            p3().call(5.0)
+            p1().check()
+        }
     }
 }

@@ -18,7 +18,7 @@ class PokerScenarioBuilder(
     val cards: List<Table.Card>,
 ) {
     private var table: Table = createInitialTable()
-    private val now: Instant = wellKnownTimestamp
+    val now: Instant = wellKnownTimestamp
     private val seedGenerator = { seed }
     private val allActions = mutableListOf<Action>()
 
@@ -36,7 +36,7 @@ class PokerScenarioBuilder(
         )
     }
 
-    fun processTable() {
+    fun processTable(now: Instant = this.now) {
         table = table.processTable(now, seedGenerator)
     }
 

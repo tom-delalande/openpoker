@@ -52,7 +52,7 @@ data class Table(
         get() = players.find { it.seat == dealerSeat + 1 }
 
     val bigBlindPlayer: LivePlayerInfo?
-        get() = if (players.size == 2) dealerPlayer else players.find { it.seat == dealerSeat + 2 }
+        get() = if (activePlayers.size == 2) dealerPlayer else activePlayers.find { it.seat == (dealerSeat + 2) % activePlayers.size }
 
     val currentNumberOfCards: Int
         get() = rounds.sumOf {

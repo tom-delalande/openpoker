@@ -1,5 +1,6 @@
 import type { components } from '../lib/api/types';
 import { useGameStore } from '../store/gameStore';
+import { sounds } from '../lib/sounds';
 
 type HandEvent = components['schemas']['HandEvent'];
 
@@ -26,6 +27,7 @@ export function handleGameEvent(event: HandEvent): void {
     }
 
     case 'HandStarted': {
+      sounds.playHandStart();
       store.setDealerButton(event.value.dealerButton);
       store.setCommunityCards([]);
       store.setCurrentPot(0);
@@ -42,6 +44,7 @@ export function handleGameEvent(event: HandEvent): void {
     }
 
     case 'RoundStarted': {
+      sounds.playCheck();
       store.setCurrentStreet(event.value.street);
       store.setActionOptions(null);
       store.setCurrentPlayerId(null);
@@ -52,12 +55,14 @@ export function handleGameEvent(event: HandEvent): void {
     }
 
     case 'CommunityCardDealt': {
+      sounds.playCardDeal();
       const currentCards = store.communityCards;
       store.setCommunityCards([...currentCards, ...event.value.cards]);
       break;
     }
 
     case 'PrivateCardDealt': {
+      sounds.playPrivateCardDeal();
       const cards = event.value.cards;
       if (event.value.playerId === playerId) {
         store.setMyCards(cards);
@@ -68,6 +73,9 @@ export function handleGameEvent(event: HandEvent): void {
 
     case 'PlayerActionRequested': {
       const req = event.value;
+      if (req.playerId === playerId) {
+        sounds.playYourTurn();
+      }
       store.setCurrentPlayerId(req.playerId);
       store.setActionOptions(req.actionOptions);
       store.setActionExpiry(req.expiry);
@@ -105,17 +113,20 @@ export function handleGameEvent(event: HandEvent): void {
     }
 
 case 'PlayerFolded': {
+      sounds.playFold();
       const { playerId } = event.value;
       store.updatePlayer(playerId, { hasFolded: true });
       break;
     }
 
     case 'PlayerChecked': {
+      sounds.playCheck();
       store.updatePlayer(event.value.playerId, { hasActed: true });
       break;
     }
 
     case 'PlayerBet': {
+      sounds.playBet();
       const { playerId: betPlayerId, amount } = event.value;
       const player = store.players.find((p) => p.id === betPlayerId);
       if (player) {
@@ -126,6 +137,7 @@ case 'PlayerFolded': {
     }
 
     case 'PlayerRaised': {
+      sounds.playRaise();
       const { playerId: raisePlayerId, amount } = event.value;
       const player = store.players.find((p) => p.id === raisePlayerId);
       if (player) {
@@ -136,6 +148,7 @@ case 'PlayerFolded': {
     }
 
     case 'PlayerCalled': {
+      sounds.playCall();
       const { playerId: callPlayerId, amount } = event.value;
       const player = store.players.find((p) => p.id === callPlayerId);
       if (player) {
@@ -152,6 +165,7 @@ case 'PlayerFolded': {
     }
 
     case 'HandFinished': {
+      sounds.playWin();
       store.setActionOptions(null);
       store.setActionExpiry(null);
       store.setCurrentPlayerId(null);

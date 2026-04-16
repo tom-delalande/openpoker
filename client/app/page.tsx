@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useGameStore } from '../src/store/gameStore';
 import { client } from '../src/lib/api/client';
+import { sounds } from '../src/lib/sounds';
 import { Button } from '../src/components/ui/Button';
 import { Input } from '../src/components/ui/Input';
+import { SoundToggle } from '../src/components/ui/SoundToggle';
 import type { components } from '../src/lib/api/types';
 
 type PlayerInfo = components['schemas']['PlayerInfo'];
@@ -64,6 +66,7 @@ export default function HomePage() {
   }, []);
 
   const handleLogin = async () => {
+    sounds.playMenuClick();
     const name = playerName.trim() || 'Player';
     setIsLoading(true);
     setError(null);
@@ -104,6 +107,7 @@ export default function HomePage() {
   };
 
   const handleLogout = () => {
+    sounds.playMenuClick();
     localStorage.removeItem('authToken');
     localStorage.removeItem('playerId');
     localStorage.removeItem('playerName');
@@ -117,6 +121,7 @@ export default function HomePage() {
   };
 
   const handleJoinTable = async () => {
+    sounds.playMenuNavigate();
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
@@ -151,6 +156,7 @@ export default function HomePage() {
   if (hasToken && playerInfo) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex flex-col items-center justify-center p-4">
+        <SoundToggle />
         <h1 style={{ fontFamily: 'var(--font-fredoka)' }} className="text-5xl sm:text-7xl text-white mb-4">OpenPoker</h1>
 
         <div className="text-center mb-6">
