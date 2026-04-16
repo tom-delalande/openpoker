@@ -5,7 +5,11 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli -u redis://${REDIS_USER:-default}:${REDIS_PASSWORD}@redis:6379 ping",
+        ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -32,8 +36,8 @@ services:
   server:
     image: openpoker-server
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     ports:
       - "3001:3001"
     environment:
@@ -41,9 +45,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_URL: jdbc:postgresql://postgres:5432/openpoker
       REDIS_HOST: redis
-      REDIS_PORT: 6379
-    volumes:
-      - ./client/out:/app/client
+      REDIS_PORT: "6379"
+      REDIS_USER: ${REDIS_USER:-default}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-postgres}
     depends_on:
       redis:
         condition: service_healthy
