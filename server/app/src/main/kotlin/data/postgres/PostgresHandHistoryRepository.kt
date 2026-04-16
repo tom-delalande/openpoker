@@ -12,7 +12,7 @@ class PostgresHandHistoryRepository(
 ) : HandHistoryRepository {
 
     override fun saveHand(tableId: UUID, hand: Table) {
-        return // TODO: re-enable
+        if (!hand.isStarted) return
         val openHandHistory = hand.toOpenHandHistory()
 
         jdbcClient.sql(

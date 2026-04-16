@@ -45,7 +45,7 @@ fun Table.toOpenHandHistory() = OpenHandHistoryDocument(
             Player(
                 name = player.name,
                 id = player.playerId,
-                seat = player.seat!!,
+                seat = player.seat,
                 startingStack = player.stack,
                 playerBounty = null,
                 display = null,
