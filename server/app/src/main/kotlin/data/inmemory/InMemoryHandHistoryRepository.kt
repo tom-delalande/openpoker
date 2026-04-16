@@ -6,6 +6,5 @@ import java.util.UUID
 
 class InMemoryHandHistoryRepository : HandHistoryRepository {
     override fun saveHand(tableId: UUID, hand: Table) {
-        // TODO: [low] Save hand history
     }
 }

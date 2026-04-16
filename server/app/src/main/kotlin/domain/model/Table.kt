@@ -29,6 +29,7 @@ data class Table(
     val isStarted: Boolean = false,
     val startedAt: Instant? = null,
     val finishedAt: Instant? = null,
+    val defaultCards: List<Card> = emptyList(),
     val seed: Long,
 ) {
     val currentRound: Round?
@@ -51,7 +52,7 @@ data class Table(
         get() = players.find { it.seat == dealerSeat + 1 }
 
     val bigBlindPlayer: LivePlayerInfo?
-        get() = if(players.size == 2) dealerPlayer else  players.find { it.seat == dealerSeat + 2 }
+        get() = if (players.size == 2) dealerPlayer else players.find { it.seat == dealerSeat + 2 }
 
     val currentNumberOfCards: Int
         get() = rounds.sumOf {
@@ -102,7 +103,6 @@ data class Table(
         sealed interface Action {
             @Serializable
             sealed interface PlayerAction : Action {
-                // TODO: [medium] this should really use seatId
                 val playerId: Int
 
                 @Serializable
@@ -321,33 +321,12 @@ data class Table(
         )
     }
 
-
-    // TODO: [high] check this is right
-    val pot: Double
-        get() = rounds.fold(0.0) { pot, round ->
-            round.actions.fold(pot) { pot, action ->
-                when (action) {
-                    is Round.Action.PlayerAction.Bet -> pot + action.amount
-                    is Round.Action.PlayerAction.Call -> pot + action.amount
-                    is Round.Action.PlayerAction.PostAnte -> pot + action.amount
-                    is Round.Action.PlayerAction.PostBigBlind -> pot + action.amount
-                    is Round.Action.PlayerAction.PostDeadBlind -> pot + action.amount
-                    is Round.Action.PlayerAction.PostExtraBlind -> pot + action.amount
-                    is Round.Action.PlayerAction.PostSmallBlind -> pot + action.amount
-                    is Round.Action.PlayerAction.PostStraddle -> pot + action.amount
-                    is Round.Action.PlayerAction.Raise -> pot + action.amount
-                    else -> pot
-                }
-
-            }
-        }
-
     val lastActivePlayerToAct: LivePlayerInfo?
         get() = players.find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
 
-    fun LivePlayerInfo.nextPlayerToAct(): LivePlayerInfo {
+    fun LivePlayerInfo.nextPlayerToAct(excludeAllInPlayers: Boolean = true): LivePlayerInfo {
         return players.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(seat + 1)
-            .first { !it.isOut && !it.isAllIn && !it.isSittingOut && this.playerId != it.playerId }
+            .first { !it.isOut && !it.isSittingOut && this.playerId != it.playerId && (if (excludeAllInPlayers) !it.isAllIn else true) }
     }
 
     val nextPlayerToAct: LivePlayerInfo

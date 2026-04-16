@@ -26,10 +26,10 @@ fun createTable(
     bigBlindAmount: Double = DEFAULT_BIG_BLIND_AMOUNT,
     anteAmount: Double = DEFAULT_ANTE_AMOUNT,
     seed: Long = Random.nextLong(),
+    defaultCards: List<Table.Card> = emptyList(),
 ): Table {
     val table = Table(
         gameType = Table.GameType.HoldEm,
-        // TODO: [medium] this is unused
         betLimit = Table.BetLimit(
             betType = Table.BetLimit.BetType.NoLimit,
             betCap = null,
@@ -54,6 +54,7 @@ fun createTable(
             )
         ),
         pots = listOf(),
+        defaultCards = defaultCards,
         seed = seed,
     )
 
@@ -359,10 +360,13 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
 }
 
 private fun Table.getCards(numberOfCards: Int): List<Table.Card> {
-    return getCards(seed, currentNumberOfCards, numberOfCards)
+    return getCards(defaultCards, seed, currentNumberOfCards, numberOfCards)
 }
 
-fun getCards(seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
+fun getCards(defaultCards: List<Table.Card>, seed: Long, offset: Int, numberOfCards: Int): List<Table.Card> {
+    if (defaultCards.size >= offset + numberOfCards) {
+        return defaultCards.subList(offset, offset + numberOfCards)
+    }
     return Table.Card.Suit.entries.toList().flatMap { suit ->
         (1..13).map { rank ->
             Table.Card(suit, rank)
@@ -437,9 +441,6 @@ private fun Table.attemptFinishRound(now: Instant): Table {
         return copy(rounds = rounds + additionalRounds).finishHand(now)
     }
 
-    val lastAction = playerRoundActions.filterNot { it is RequestAction }.last()
-    val lastActionPlayer = players.find { it.playerId == lastAction.playerId }
-    val nextPlayerToAct = lastActionPlayer?.nextPlayerToAct()
     val lastRaiseActionPlayerId =
         if (currentRound?.street != Round.Street.PreFlop && playerRoundActions.none { it is Raise || it is Bet }) {
             playerRoundActions.firstOrNull { it is Check }?.playerId
@@ -454,6 +455,14 @@ private fun Table.attemptFinishRound(now: Instant): Table {
         } else {
             playerRoundActions.dropLast(1).findLast { it is Raise || it is Bet }?.playerId
         }
+
+    val lastRaiseActionPlayer = players.find { it.playerId == lastRaiseActionPlayerId }
+
+    val nextPlayerToAct = if (lastRaiseActionPlayer?.isAllIn == true) {
+        lastActivePlayerToAct?.nextPlayerToAct(false)
+    } else {
+        nextPlayerToAct
+    }
 
     if (lastRaiseActionPlayerId == nextPlayerToAct?.playerId) {
         if (currentRound?.street == Round.Street.River || players.all { it.isAllIn }) {
@@ -497,8 +506,12 @@ private fun Table.attemptFinishRound(now: Instant): Table {
 
 private fun Table.finishHand(now: Instant): Table {
     if (isFinished) return this
-    val winners = calculateWinners()
-    if (winners.isEmpty()) return copy(
+    val ascendingPlayerContributions = players
+        .map { it to (it.initialStack - it.stack) }
+        .sortedBy { it.second }
+
+    val handRatings = calculateSortedHandRatings()
+    if (handRatings.isEmpty()) return copy(
         isFinished = true,
         finishedAt = now,
         rounds = rounds.mapIndexed { index, it ->
@@ -513,7 +526,6 @@ private fun Table.finishHand(now: Instant): Table {
         },
         pots = pots,
     )
-    val winnings = pot / winners.count()
 
     val firstPlayerToShow = rounds
         .flatMap { it.actions }
@@ -522,37 +534,59 @@ private fun Table.finishHand(now: Instant): Table {
         ?.playerId?.let { playerId -> activePlayers.find { it.playerId == playerId } }
         ?: firstActivePlayerAfterDealer
 
-    val players = players.sortedBy { it.seat }.shift(firstPlayerToShow.seat)
+    val allPlayers = players.sortedBy { it.seat }.shift(firstPlayerToShow.seat)
     val inPlayers =
         activePlayers.filterNot { it.isOut || it.isSittingOut }.sortedBy { it.seat }.shift(firstPlayerToShow.seat)
 
-    val pots = listOf(
-        Table.Pot(
-            number = 0,
-            amount = pot,
-            jackpot = 0.0,
-            playerWins = winners.map {
-                Table.Pot.PlayerWin(
-                    playerId = it,
-                    winAmount = winnings,
-                )
-            }
-        )
-    )
+    val allPlayersContributions = ascendingPlayerContributions
+    val allContributions = players
+        .map { player -> player to (player.initialStack - player.stack) }
+        .sortedBy { it.second }
 
-    val outPlayers = copy(pots = pots).players.map { player ->
+    val sidePots = mutableListOf<Table.Pot>()
+    var accumulatedPot = 0.0
+    var potNumber = 0
+
+    for (i in allContributions.indices) {
+        val currentContribution = allContributions[i].second
+        if (currentContribution <= 0) continue
+
+        val contributionDelta =
+            if (i == 0) currentContribution else currentContribution - allContributions[i - 1].second
+
+        val eligiblePlayers = players.filter { player ->
+            (player.initialStack - player.stack) >= currentContribution
+        }
+
+        val potSize = contributionDelta * eligiblePlayers.size
+        if (potSize > 0) {
+            val winners = calculateWinnersFor(eligiblePlayers)
+            val winAmount = potSize / winners.size
+
+            sidePots.add(
+                Table.Pot(
+                    number = potNumber++,
+                    amount = potSize,
+                    jackpot = 0.0,
+                    playerWins = winners.map { Table.Pot.PlayerWin(it, winAmount) }
+                ))
+            accumulatedPot += potSize
+        }
+    }
+
+    val outPlayers = copy(pots = sidePots).players.map { player ->
         player.copy(
-            stack = player.stack + pots.flatMap { it.playerWins }
+            stack = player.stack + sidePots.flatMap { it.playerWins }
                 .filter { it.playerId == player.playerId }
                 .sumOf { it.winAmount }
         )
     }.filter { it.stack == 0.0 }
 
-    val playerStacks = players
+    val playerStacks = allPlayers
         .map { player ->
             Round.Action.PlayerStack(
                 playerId = player.playerId,
-                stack = player.stack + pots.flatMap { it.playerWins }
+                stack = player.stack + sidePots.flatMap { it.playerWins }
                     .filter { it.playerId == player.playerId }
                     .sumOf { it.winAmount }
             )
@@ -571,7 +605,6 @@ private fun Table.finishHand(now: Instant): Table {
     } else emptyList()
     val updatedRounds = rounds + showdown
 
-    // TODO: [high] Calculate split pots and all that
     return copy(
         isFinished = true,
         finishedAt = now,
@@ -580,7 +613,7 @@ private fun Table.finishHand(now: Instant): Table {
                 actions = it.actions + listOf(Round.Action.HandEnded(playerStacks))
             )) else it
         },
-        pots = pots,
+        pots = sidePots,
     )
 }
 
@@ -589,6 +622,20 @@ private fun Table.calculateWinners(): List<Int> {
         players.filterNot { it.isOut && !it.isSittingOut }.associateWith { (it.cards).rateHand().score }
     val winningRating = handRatings.maxOf { it.value }
     return handRatings.filterValues { it == winningRating }.map { it.key.playerId }
+}
+
+private fun Table.calculateWinnersFor(eligiblePlayers: List<Table.LivePlayerInfo>): List<Int> {
+    val activeEligiblePlayers = eligiblePlayers.filterNot { it.isOut && !it.isSittingOut }
+    val handRatings = activeEligiblePlayers.associateWith { it.cards.rateHand().score }
+    val winningRating = handRatings.maxOfOrNull { it.value } ?: return emptyList()
+    return handRatings.filterValues { it == winningRating }.map { it.key.playerId }
+}
+
+private fun Table.calculateSortedHandRatings(): Map<Table.LivePlayerInfo, Double> {
+    val handRatings =
+        players.filterNot { it.isOut && !it.isSittingOut }.associateWith { (it.cards).rateHand().score }
+            .toSortedMap { (_, rating1), (_, rating2) -> rating2 - rating1 }
+    return handRatings
 }
 
 private fun Table.requestNextAction(now: Instant): Table {
@@ -631,7 +678,6 @@ private fun Table.requestNextAction(now: Instant): Table {
 
         if (currentRaise > 0.0 && playerStack > 0.0 && (currentRaise - previousRaise) + bigBlindAmount < playerStack) {
             add(
-                // TODO: [medium] raises might still be wrong
                 ActionOption.Raise(
                     minAmount = (currentRaise - previousRaise) + bigBlindAmount,
                     maxAmount = max(playerRaise - currentRaise, playerStack)

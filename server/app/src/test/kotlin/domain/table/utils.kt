@@ -91,7 +91,7 @@ fun TableConfig.withDealtCards() {
     withRound(Table.Round.Street.PreFlop) {
         orderedPLayers.forEach { index ->
             val player = players[index]
-            val cards = getCards(seed, index * 2, 2)
+            val cards = getCards(defaultCards = listOf(), seed, index * 2, 2)
             withAction(
                 Table.Round.Action.PlayerAction.DealCards(
                     playerId = player.id,
@@ -113,7 +113,7 @@ fun TableConfig.withAction(action: Table.Round.Action) {
 fun TableConfig.withPreFlopRound() {
     withRound(Table.Round.Street.PreFlop) {
         players.forEachIndexed { index, player ->
-            val cards = getCards(seed, index * 2, 2)
+            val cards = getCards(defaultCards = listOf(), seed, index * 2, 2)
             withAction(
                 Table.Round.Action.PlayerAction.DealCards(
                     playerId = player.id,
