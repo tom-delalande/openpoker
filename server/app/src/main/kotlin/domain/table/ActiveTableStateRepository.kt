@@ -9,12 +9,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 
 interface ActiveTableStateRepository {
-    fun getActiveTables(): List<ActiveTable>
-    suspend fun performedLockedFunctionOnTables(work: suspend (List<ActiveTable>) -> Unit)
-    fun get(id: UUID): ActiveTable?
     suspend fun get(id: UUID, work: suspend (ActiveTable) -> ActiveTable): Table?
+    suspend fun create(id: UUID, table: ActiveTable)
     fun getSession(sessionId: UUID): UUID?
-    fun set(id: UUID, table: ActiveTable, withLock: Boolean = true)
 }
 
 @Serializable

@@ -66,12 +66,14 @@ export function PokerTable() {
     error,
     winners,
     currentStreet,
+    handId,
     setTableId,
     setPlayerId,
     setCurrentView,
   } = useGameStore();
 
   const tableId = useMemo(() => useGameStore.getState().tableId, []);
+  const displayId = handId || tableId;
   const isMyTurn = currentPlayerId === playerId && actionOptions !== null;
 
   const handleLeaveTable = useCallback(() => {
@@ -208,7 +210,18 @@ export function PokerTable() {
         <Button variant="ghost" size="sm" onClick={handleLeaveTable}>
           ← Leave
         </Button>
-        <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+        <div className="flex items-center gap-3">
+          {displayId && (
+            <button
+              onClick={() => navigator.clipboard.writeText(displayId)}
+              className="text-xs text-white/30 hover:text-white/50 transition-colors"
+              title="Click to copy"
+            >
+              {displayId}
+            </button>
+          )}
+          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+        </div>
         {error && <span className="text-red-400 text-sm hidden sm:inline">{error}</span>}
       </header>
 

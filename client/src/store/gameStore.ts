@@ -16,6 +16,7 @@ export interface GameState {
   playerId: number | null;
   playerName: string;
   tableId: string | null;
+  handId: string | null;
   currentView: 'home' | 'table';
   players: Player[];
   communityCards: string[];
@@ -37,6 +38,7 @@ export interface GameActions {
   setPlayerId: (id: number | null) => void;
   setPlayerName: (name: string) => void;
   setTableId: (tableId: string | null) => void;
+  setHandId: (handId: string | null) => void;
   setCurrentView: (view: 'home' | 'table') => void;
   setConnected: (connected: boolean) => void;
   setLoading: (loading: boolean) => void;
@@ -61,6 +63,7 @@ const initialState: GameState = {
   playerId: null,
   playerName: '',
   tableId: null,
+  handId: null,
   currentView: 'home',
   players: [],
   communityCards: [],
@@ -84,6 +87,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   setPlayerId: (id) => set({ playerId: id }),
   setPlayerName: (name) => set({ playerName: name }),
   setTableId: (tableId) => set({ tableId }),
+  setHandId: (handId) => set({ handId }),
   setCurrentView: (view) => set({ currentView: view }),
   setConnected: (connected) => set({ isConnected: connected }),
   setLoading: (loading) => set({ isLoading: loading }),

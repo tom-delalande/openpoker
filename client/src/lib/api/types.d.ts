@@ -333,6 +333,7 @@ export interface components {
             type: "HandStartedEvent";
             /** Format: int32 */
             dealerButton: number;
+            handId: string;
         };
         PlayerAction: components["schemas"]["PlayerActionFold"] | components["schemas"]["PlayerActionCheck"] | components["schemas"]["PlayerActionCall"] | components["schemas"]["PlayerActionBet"] | components["schemas"]["PlayerActionRaise"] | components["schemas"]["PlayerActionPostSmallBlind"] | components["schemas"]["PlayerActionPostBigBlind"] | components["schemas"]["PlayerActionStandUp"] | components["schemas"]["PlayerActionSitDown"];
         PlayerActionBet: {

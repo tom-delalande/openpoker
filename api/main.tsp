@@ -50,6 +50,7 @@ model PlayerStoodUp {
 model HandStarted {
   type: "HandStartedEvent";
   dealerButton: int32;
+  handId: string;
 }
 
 model RoundStarted {

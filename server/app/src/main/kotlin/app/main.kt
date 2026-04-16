@@ -83,7 +83,7 @@ fun main() {
 
     }
     val websockets = ConcurrentHashMap<UUID, MutableSharedFlow<HandEvent>>()
-    val tableService = TableService(activeTableRepository, handHistoryRepository, websockets)
+    val tableService = TableService(activeTableRepository, websockets)
     val gameService = CashGameService(cashGameRepository, handHistoryRepository, tableService)
 
     CoroutineScope(Dispatchers.Default).launch {

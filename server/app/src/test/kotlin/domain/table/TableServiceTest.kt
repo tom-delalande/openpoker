@@ -8,8 +8,6 @@ import domain.model.Table
 import domain.tournament.CashGameService
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -42,7 +40,7 @@ class TableServiceTest {
         cashGameRepository = InMemoryCashGameRepository()
         authRepository = InMemoryAuthRepository()
         websockets = ConcurrentHashMap()
-        tableService = TableService(activeTableStateRepository, handHistoryRepository, emptyMap())
+        tableService = TableService(activeTableStateRepository, emptyMap())
         gameService = CashGameService(cashGameRepository, handHistoryRepository, tableService)
     }
 

@@ -15,7 +15,7 @@ class CashGameService(
     val defaultStack = 100.0
     val minStack = 20.0
 
-    fun createOrJoin(playerId: Int, name: String, stack: Double): UUID {
+    suspend fun createOrJoin(playerId: Int, name: String, stack: Double): UUID {
         val games = repository.get()
         val game = games.find { it.players.size in 1..<9 } ?: CashGameRepository.CashGame()
         if (game.players.none { it.id == playerId }) {

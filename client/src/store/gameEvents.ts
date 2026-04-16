@@ -28,6 +28,7 @@ export function handleGameEvent(event: HandEvent): void {
 
     case 'HandStarted': {
       sounds.playHandStart();
+      store.setHandId(event.value.handId);
       store.setDealerButton(event.value.dealerButton);
       store.setCommunityCards([]);
       store.setCurrentPot(0);

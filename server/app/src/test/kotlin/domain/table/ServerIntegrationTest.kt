@@ -88,7 +88,7 @@ class ServerIntegrationTest {
         cashGameRepository = InMemoryCashGameRepository()
         authRepository = InMemoryAuthRepository()
         websockets = ConcurrentHashMap()
-        tableService = TableService(activeTableStateRepository, handHistoryRepository, emptyMap())
+        tableService = TableService(activeTableStateRepository, emptyMap())
         gameService = CashGameService(cashGameRepository, handHistoryRepository, tableService)
 
         server = embeddedServer(Netty, port = serverPort) {

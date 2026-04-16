@@ -5,7 +5,6 @@ package domain.table
 import app.logger
 import domain.model.Table
 import domain.tournament.CashGameRepository
-import domain.tournament.CashGameService
 import java.time.Instant
 import java.util.UUID
 import kotlin.time.toKotlinInstant
@@ -86,13 +85,12 @@ import server.models.RoundStartedType
 
 class TableService(
     val activeRepository: ActiveTableStateRepository,
-    val historicRepository: HandHistoryRepository,
     val sessions: Map<UUID, MutableSharedFlow<HandEvent>>,
 ) {
     suspend fun process(tableId: UUID, now: Instant = Instant.now()): Table? {
         return activeRepository.get(tableId) { activeTable ->
             val updated = activeTable.table.processTable(now)
-            val events = updated.toEvents()
+            val events = updated.toEvents(tableId)
             val updatedSockets = mutableListOf<Socket>()
             for (playerSocket in activeTable.playerSockets) {
                 val version = if (updated.handVersion == playerSocket.handVersion) {
@@ -113,30 +111,19 @@ class TableService(
             }
 
             val updatedActiveTable = ActiveTable(tableId, updated, updatedSockets.toList(), activeTable.finished)
-            activeRepository.set(tableId, updatedActiveTable, withLock = false)
             updatedActiveTable
         }
     }
 
     suspend fun addWebSocketConnection(playerId: Int, tableId: UUID, sessionId: UUID, now: Instant) {
         activeRepository.get(tableId) { table ->
-            activeRepository.set(
-                tableId,
-                table.copy(playerSockets = table.playerSockets + Socket(playerId, sessionId, tableId, 0, 0)),
-                withLock = false,
-            )
-            table
+            table.copy(playerSockets = table.playerSockets + Socket(playerId, sessionId, tableId, 0, 0))
         }
     }
 
-    suspend fun removeWebSocketConnection(tableId: UUID, sessionId: UUID, now: Instant) {
+    suspend fun removeWebSocketConnection(tableId: UUID, sessionId: UUID) {
         activeRepository.get(tableId) { table ->
-            activeRepository.set(
-                tableId,
-                table.copy(playerSockets = table.playerSockets.filterNot { it.sessionId == sessionId }),
-                withLock = false,
-            )
-            table
+            table.copy(playerSockets = table.playerSockets.filterNot { it.sessionId == sessionId })
         }
     }
 
@@ -155,28 +142,39 @@ class TableService(
             val updated = activeTable.table
                 .processPlayerAction(playerId, action, now)
                 .processPostAction(now)
-            activeRepository.set(activeTable.id, activeTable.copy(table = updated), withLock = false)
-            activeTable
+            activeTable.copy(table = updated)
         }
     }
 
-    fun createOrJoin(id: UUID, player: CashGameRepository.Player) {
-        val activeTable = activeRepository.get(id)
-        val table = activeTable?.table ?: createTable()
-        val updated = table.addPlayer(player)
-        activeRepository.set(
-            id,
-            ActiveTable(
+    suspend fun createOrJoin(id: UUID, player: CashGameRepository.Player) {
+        val joined = activeRepository.get(id) { activeTable ->
+            activeTable.copy(table = activeTable.table.addPlayer(player))
+            val table = activeTable.table
+            val updated = table.addPlayer(player)
+            val updatedActive = ActiveTable(
                 id,
                 updated,
-                activeTable?.playerSockets ?: emptyList(),
-                activeTable?.finished ?: false
+                activeTable.playerSockets,
+                activeTable.finished
             )
-        )
+            updatedActive
+        }
+
+        if (joined == null) {
+            activeRepository.create(
+                id,
+                ActiveTable(
+                    id,
+                    createTable().addPlayer(player),
+                    emptyList(),
+                    false,
+                )
+            )
+        }
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    fun Table.toEvents(): List<HandEvent> = buildList {
+    fun Table.toEvents(tableId: UUID): List<HandEvent> = buildList {
         rounds.forEach { round ->
             round.actions.mapNotNull { action ->
                 when (action) {
@@ -185,6 +183,7 @@ class TableService(
                             value = HandStarted(
                                 type = HandStartedType.HAND_STARTED_EVENT,
                                 dealerButton = dealerSeat,
+                                handId = "$tableId:$handVersion"
                             )
                         )
                     )

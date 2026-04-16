@@ -110,7 +110,7 @@ fun Route.tableEndpoints(
                 }
             } finally {
                 logger.info("Websocket has been closed. token[$token] tableId[$tableId]")
-                tableService.removeWebSocketConnection(tableId, sessionId, Instant.now())
+                tableService.removeWebSocketConnection(tableId, sessionId)
                 job.cancel()
             }
         }
