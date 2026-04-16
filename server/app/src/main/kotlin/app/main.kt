@@ -75,6 +75,8 @@ fun main() {
         val redisClient = RedisClient.create(
             System.getenv("REDIS_HOST"),
             System.getenv("REDIS_PORT")!!.toInt(),
+            System.getenv("REDIS_USER"),
+            System.getenv("REDIS_PASSWORD"),
         )
         Repositories(
             RedisActiveTableRepository(redisClient),

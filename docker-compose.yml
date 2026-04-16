@@ -1,9 +1,19 @@
+x-logging: &logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   redis:
-    image: redis:8.6.2
+    image: redis:8.6.2-alpine
     container_name: openpoker-redis
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
+    command: redis-server --user ${REDIS_USER:-default} --requirepass ${REDIS_PASSWORD}
+    environment:
+      REDIS_USER: ${REDIS_USER:-default}
     healthcheck:
       test:
         [
@@ -13,25 +23,33 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 5s
     restart: unless-stopped
+    <<: *logging
+    networks:
+      - openpoker
 
   postgres:
-    image: postgres:18.3
+    image: postgres:18.3-alpine
     container_name: openpoker-postgres
+    expose:
+      - "5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: openpoker
-    ports:
-      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
+    <<: *logging
+    networks:
+      - openpoker
 
   server:
     image: openpoker-server
@@ -42,18 +60,33 @@ services:
       - "3001:3001"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_URL: jdbc:postgresql://postgres:5432/openpoker
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_USER: ${REDIS_USER:-default}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-postgres}
+    volumes:
+      - ./client/out:/app/client:ro
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
+    <<: *logging
+    networks:
+      - openpoker
+
+networks:
+  openpoker:
+    driver: bridge
 
 volumes:
   postgres_data:
