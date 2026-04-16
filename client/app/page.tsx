@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useGameStore } from '../src/store/gameStore';
 import { client } from '../src/lib/api/client';
 import { sounds } from '../src/lib/sounds';
+import { formatAmount } from '../src/lib/cards';
 import { Button } from '../src/components/ui/Button';
 import { Input } from '../src/components/ui/Input';
 import { SoundToggle } from '../src/components/ui/SoundToggle';
@@ -166,7 +167,6 @@ export default function HomePage() {
 
         <div className="w-full max-w-sm bg-[#2d5a3d] border-4 border-[#1a3622] rounded-2xl p-6 sm:p-8 shadow-2xl">
           <div className="bg-[#1a472a] rounded-xl p-4 mb-6 text-center border border-[#1a5c32]">
-            <p className="text-gray-400 text-sm mb-1">Your Stack</p>
             {isFetchingStack ? (
               <div className="text-white/60 text-xl py-2 flex items-center justify-center gap-2">
                 <span className="animate-spin">⟳</span>
@@ -175,7 +175,7 @@ export default function HomePage() {
             ) : (
               <p className="text-yellow-400 text-3xl font-bold flex items-center justify-center gap-2">
                 <ChipIcon className="w-7 h-7" />
-                {playerInfo.stack.toFixed(2)}
+                {formatAmount(playerInfo.stack)}
               </p>
             )}
           </div>

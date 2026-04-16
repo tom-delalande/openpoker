@@ -13,6 +13,7 @@ class CashGameService(
     private val tableService: TableService,
 ) {
     val defaultStack = 100.0
+    val minStack = 20.0
 
     fun createOrJoin(playerId: Int, name: String, stack: Double): UUID {
         val games = repository.get()
@@ -61,7 +62,7 @@ class CashGameService(
 
     fun updatePlayerStack(playerId: Int, stack: Double) {
         val player = repository.getPlayer(playerId)
-        repository.setPlayer(playerId, player.copy(stack = max(stack, defaultStack)))
+        repository.setPlayer(playerId, player.copy(stack = max(stack, minStack)))
     }
 
     fun removePlayer(gameId: UUID, playerId: Int) {
