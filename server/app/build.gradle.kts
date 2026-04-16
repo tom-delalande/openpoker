@@ -13,7 +13,6 @@ kotlin {
 sourceSets {
     main {
         kotlin {
-            // Register the generated directory as a source directory
             srcDir("$buildDir/generated/src/main/kotlin")
         }
     }
@@ -97,5 +96,5 @@ fabrikt {
 }
 
 tasks.named("assemble") {
-    dependsOn("app:fabrikGenerate")
+    dependsOn("fabriktGenerate")
 }
