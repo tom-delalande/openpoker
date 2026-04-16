@@ -180,4 +180,27 @@ class PokerScenarioTest {
             p1().check()
         }
     }
+
+    @Test
+    fun `if dealer sits up instead of acting, then hand carries on`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(100.0, 1000.0, 1000.0),
+        ) {
+            postBlinds()
+            dealHoleCards()
+            manually {
+                it
+            }
+            p1().standUp()
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            manually {
+                assertEquals(Street.Flop, it.currentRound?.street)
+            }
+        }
+    }
 }

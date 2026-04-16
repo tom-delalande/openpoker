@@ -103,7 +103,6 @@ class PlayerActor(val playerId: Int, val builder: PokerScenarioBuilder) {
     fun call(amount: Double) = builder.doAction(playerId, PlayerActionRequest.Call(playerId, amount))
     fun bet(amount: Double) = builder.doAction(playerId, PlayerActionRequest.Bet(playerId, amount))
     fun raise(amount: Double) = builder.doAction(playerId, PlayerActionRequest.Raise(playerId, amount))
-    fun allIn() = builder.doAction(playerId, PlayerActionRequest.Raise(playerId, 1000.0))
     fun standUp() = builder.doAction(playerId, PlayerActionRequest.StandUp(playerId))
 }
 
@@ -112,11 +111,11 @@ fun pokerScenario(
     blinds: Pair<Double, Double>,
     seed: Long = 1,
     stacks: List<Double> = (0..8).map { 1000.0 },
-    cards: String = "",
+    cards: String? = null,
     scenario: PokerScenarioBuilder.() -> Unit,
 ): PokerScenarioResult {
     val builder =
-        PokerScenarioBuilder(players, blinds.first, blinds.second, seed, stacks, cards.split(" ").map { it.toCard() })
+        PokerScenarioBuilder(players, blinds.first, blinds.second, seed, stacks, cards?.split(" ")?.map { it.toCard() } ?: emptyList())
     builder.apply(scenario)
     return builder.run()
 }

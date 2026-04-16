@@ -325,7 +325,7 @@ data class Table(
         get() = players.find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
 
     fun LivePlayerInfo.nextPlayerToAct(excludeAllInPlayers: Boolean = true): LivePlayerInfo {
-        return players.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(seat + 1)
+        return players.sortedBy { it.seat }.shift(seat + 1)
             .first { !it.isOut && !it.isSittingOut && this.playerId != it.playerId && (if (excludeAllInPlayers) !it.isAllIn else true) }
     }
 
