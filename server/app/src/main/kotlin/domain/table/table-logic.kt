@@ -677,14 +677,16 @@ private fun Table.requestNextAction(now: Instant): Table {
         }
 
         if (currentRaise == 0.0 && playerStack > 0.0) {
-            add(ActionOption.Bet(minAmount = bigBlindAmount, maxAmount = playerStack))
+            add(ActionOption.Bet(minAmount = min(playerStack, bigBlindAmount), maxAmount = playerStack))
         }
 
         if (currentRaise > 0.0 && playerStack > 0.0 && (currentRaise - previousRaise) + bigBlindAmount < playerStack) {
             add(
                 ActionOption.Raise(
-                    minAmount = (currentRaise - previousRaise) + bigBlindAmount,
-                    maxAmount = max(playerRaise - currentRaise, playerStack)
+                    minAmount = min((currentRaise - previousRaise) + bigBlindAmount, playerStack),
+                    maxAmount = max(
+                        playerRaise - currentRaise, playerStack
+                    )
                 )
             )
         }

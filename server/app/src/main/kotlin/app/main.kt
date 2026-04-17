@@ -72,12 +72,21 @@ fun main() {
 
         val jdbcClient = JdbcClient.create(dataSource)
 
-        val redisClient = RedisClient.create(
-            System.getenv("REDIS_HOST"),
-            System.getenv("REDIS_PORT")!!.toInt(),
-            System.getenv("REDIS_USER"),
-            System.getenv("REDIS_PASSWORD"),
-        )
+        val redisUser = System.getenv("REDIS_USER")
+        val redisPassword = System.getenv("REDIS_PASSWORD")
+        val redisClient = if (redisUser != null && redisPassword != null) {
+            RedisClient.create(
+                System.getenv("REDIS_HOST"),
+                System.getenv("REDIS_PORT")!!.toInt(),
+                redisUser,
+                redisPassword
+            )
+        } else {
+            RedisClient.create(
+                System.getenv("REDIS_HOST"),
+                System.getenv("REDIS_PORT")!!.toInt(),
+            )
+        }
         Repositories(
             RedisActiveTableRepository(redisClient),
             PostgresHandHistoryRepository(jdbcClient),

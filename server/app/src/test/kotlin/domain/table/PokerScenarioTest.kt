@@ -880,6 +880,26 @@ class PokerScenarioTest {
     }
 
     @Test
+    fun `player with short stack less than big blind can still bet`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(19.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().check()
+            p3().check()
+            p1().bet(9.0)
+        }
+    }
+
+    @Test
     fun `big blind can check-raise all-in on first action`() {
         val r = pokerScenario(
             players = 3,
