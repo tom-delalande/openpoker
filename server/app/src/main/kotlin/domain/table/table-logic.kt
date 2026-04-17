@@ -386,7 +386,7 @@ private fun Table.attemptFinishRound(now: Instant): Table {
         return copy()
     }
 
-    if (players.count { !it.isOut && !it.isSittingOut } <= 1) {
+    if (players.count { !it.isOut && !it.isSittingOut && !it.isNew } <= 1) {
         return finishHand(now)
     }
 

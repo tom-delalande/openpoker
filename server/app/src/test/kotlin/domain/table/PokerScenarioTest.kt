@@ -657,6 +657,28 @@ class PokerScenarioTest {
         }
     }
 
+    @Test
+    fun `table with 2 players, 1 joins after starts, then active player folds, hand ends`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p2().call(5.0)
+            p1().check()
+            p3().sitDown(200.0)
+            dealFlop()
+            p2().fold()
+            dealTurn()
+            dealRiver()
+        }
+
+        r.assertFinished()
+    }
+
     // ==================== SHOWDOWN & POT DISTRIBUTION ====================
 
     @Test
