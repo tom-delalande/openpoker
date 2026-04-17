@@ -164,7 +164,7 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex flex-col items-center justify-center p-4">
         <SoundToggle />
-        <h1 style={{ fontFamily: 'var(--font-fredoka)' }} className="text-5xl sm:text-7xl text-white mb-4">OpenPoker</h1>
+        <h1 style={{ fontFamily: 'var(--font-fredoka)' }} className="text-5xl sm:text-7xl text-white mb-4">TinyPoker</h1>
 
         <div className="text-center mb-6">
           <p className="text-white/60 text-sm">Playing as</p>
@@ -223,7 +223,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1a472a] to-[#0f3020] flex flex-col items-center justify-center p-4">
-      <h1 style={{ fontFamily: 'var(--font-fredoka)' }} className="text-5xl sm:text-7xl text-white mb-8">OpenPoker</h1>
+      <h1 style={{ fontFamily: 'var(--font-fredoka)' }} className="text-5xl sm:text-7xl text-white mb-8">TinyPoker</h1>
 
       <div className="w-full max-w-sm bg-[#2d5a3d] border-4 border-[#1a3622] rounded-2xl p-6 sm:p-8 shadow-2xl">
         <div className="space-y-4">

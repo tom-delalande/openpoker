@@ -20,7 +20,7 @@ const boogaloo = Fredoka({
 });
 
 export const metadata: Metadata = {
-  title: "OpenPoker",
+  title: "TinyPoker",
   description: "Online poker table",
 };
 
