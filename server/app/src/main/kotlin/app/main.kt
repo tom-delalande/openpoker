@@ -113,7 +113,7 @@ fun main() {
         }
     }
 
-    embeddedServer(Netty, port = 3001) {
+    embeddedServer(Netty, port = System.getenv("PORT")?.toInt() ?: 8080) {
 
         module(authRepository, gameService, tableService, websockets)
 
