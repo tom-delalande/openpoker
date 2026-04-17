@@ -13,6 +13,7 @@ import domain.table.HandHistoryRepository
 import domain.table.TableService
 import domain.tournament.CashGameRepository
 import domain.tournament.CashGameService
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -22,6 +23,8 @@ import io.ktor.server.http.content.staticFiles
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.response.respond
+import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import java.io.File
@@ -114,10 +117,7 @@ fun main() {
     }
 
     embeddedServer(Netty, port = System.getenv("PORT")?.toInt() ?: 8080) {
-
         module(authRepository, gameService, tableService, websockets)
-
-
     }.start(wait = true)
 }
 
@@ -139,6 +139,9 @@ fun Application.module(
     }
 
     routing {
+        get("/health-check") {
+            call.respond(HttpStatusCode.OK)
+        }
         staticFiles("/", File("client"))
         authEndpoints(authRepository, gameService)
         gameEndpoints(gameService, authRepository)
