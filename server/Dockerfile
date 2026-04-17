@@ -6,9 +6,6 @@ COPY client/package*.json ./
 RUN npm install
 COPY client/ ./
 
-ARG NODE_ENV=production
-ENV NODE_ENV=${NODE_ENV}
-
 RUN npm run build
 
 # Stage 2: Build API
