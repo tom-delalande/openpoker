@@ -39,6 +39,6 @@ COPY --from=server-builder /app/app/build/distributions/app-bundle.tar /app/app-
 COPY --from=server-builder /app/db/migrations /app/db/migrations
 RUN tar -xf /app/app-bundle.tar
 
-EXPOSE 3001
+EXPOSE 8080
 
 CMD ./app-bundle/bin/app
