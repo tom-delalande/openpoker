@@ -51,7 +51,7 @@ export function PlayerSeat({
 
   return (
     <div className={`
-      flex flex-col items-center transition-all duration-300
+      flex flex-col items-center transition-all duration-300 relative
       ${isCurrentPlayer ? 'scale-110 z-10' : ''}
     `}>
       {(isDealer || isCurrentPlayer || isWinner) && (
@@ -75,7 +75,7 @@ export function PlayerSeat({
         ${hasFolded ? 'opacity-60' : ''}
       `}>
         <div className="font-bold text-sm truncate max-w-[80px]">
-          {isLocalPlayer ? 'You' : name}
+          {name}
         </div>
         {currentBet > 0 && (
           <div className="text-blue-300 text-xs font-medium flex items-center justify-center gap-0.5">
@@ -91,6 +91,9 @@ export function PlayerSeat({
           <div className="text-red-400 text-xs font-medium mt-0.5">Folded</div>
         )}
       </div>
+      {isLocalPlayer && (
+        <div className="h-0.5 w-16 rounded-full bg-green-500/60 mt-1 shadow-sm" />
+      )}
     </div>
   );
 }
