@@ -103,7 +103,6 @@ fun Table.nextHandPlayers() = players.filterNot { it.isSittingOut }
                 .sumOf { it.winAmount }
         )
     }
-    .filter { player -> player.stack > 0 }
 
 fun Table.processTable(now: Instant, seedGenerator: () -> Long = { Random.nextLong() }): Table {
     if (!isFinished && isStarted && players.count { !it.isSittingOut } < 2) {
@@ -143,7 +142,8 @@ fun Table.startNextHand(
     seed: Long = Random.nextLong(),
     now: Instant,
 ): Table {
-    if (nextHandPlayers().size <= 1) {
+    val (outPlayers, inPlayers) = nextHandPlayers().partition { it.stack == 0.0 }
+    if (inPlayers.size <= 1) {
         return copy()
     }
     return copy(
@@ -161,7 +161,8 @@ fun Table.startNextHand(
                 street = Round.Street.PreFlop,
                 actions = listOf(
                     *(if (includePreFlopEvents) rounds.first().actions.toTypedArray() else emptyArray()),
-                    *nextHandPlayers().map {
+                    *outPlayers.map { StandUp(playerId = it.playerId, stack = 0.0) }.toTypedArray(),
+                    *inPlayers.map {
                         SitDown(
                             playerId = it.playerId,
                             playerName = it.name,
@@ -609,8 +610,7 @@ private fun Table.finishHand(now: Instant): Table {
                 id = 4,
                 street = Round.Street.Showdown,
                 actions = listOf(Round.Action.RoundStarted(id = 4, street = Round.Street.Showdown)) +
-                        inPlayers.map { ShowCards(it.playerId, it.pocketCards) } +
-                        outPlayers.map { StandUp(it.playerId, it.stack) }
+                        inPlayers.map { ShowCards(it.playerId, it.pocketCards) }
             )
         )
     } else emptyList()

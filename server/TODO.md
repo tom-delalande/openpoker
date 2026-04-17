@@ -1,2 +1,1 @@
 - Check what happens from client POV if you go all in and then leave
-- Don't make eliminated players sit out until next hnd
