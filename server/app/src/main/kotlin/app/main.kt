@@ -50,12 +50,14 @@ val logger = LoggerFactory.getLogger("Main")
 
 @OptIn(ExperimentalSerializationApi::class)
 fun main() {
-    val useInMemory = false
+    val useInMemory = System.getenv("IN_MEMORY_ENABLED")?.toBoolean() ?: false
 
     val (activeTableRepository, handHistoryRepository, cashGameRepository, authRepository) = if (useInMemory) {
         Repositories(
-            InMemoryActiveTableStateRepository(), InMemoryHandHistoryRepository(),
-            InMemoryCashGameRepository(), InMemoryAuthRepository()
+            InMemoryActiveTableStateRepository(),
+            InMemoryHandHistoryRepository(),
+            InMemoryCashGameRepository(),
+            InMemoryAuthRepository(),
         )
     } else {
         val dataSource = PGSimpleDataSource().apply {
