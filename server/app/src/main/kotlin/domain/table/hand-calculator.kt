@@ -30,22 +30,6 @@ fun List<Card>.rateHand(): HandRating {
         )
     }
 
-    if (hands.straight.isNotEmpty()) {
-        val score = calculateHandScore(HandStrength.Straight, hands.straight, highCards)
-        return HandRating(
-            HandStrength.Straight,
-            score,
-        )
-    }
-
-    if (hands.flush.isNotEmpty()) {
-        val score = calculateHandScore(HandStrength.Flush, hands.flush, highCards)
-        return HandRating(
-            HandStrength.Flush,
-            score,
-        )
-    }
-
     if (hands.fourOfAKind.isNotEmpty()) {
         val score = calculateHandScore(HandStrength.FourOfAKind, hands.fourOfAKind, highCards)
         return HandRating(
@@ -65,6 +49,23 @@ fun List<Card>.rateHand(): HandRating {
             score,
         )
     }
+
+    if (hands.flush.isNotEmpty()) {
+        val score = calculateHandScore(HandStrength.Flush, hands.flush, highCards)
+        return HandRating(
+            HandStrength.Flush,
+            score,
+        )
+    }
+
+    if (hands.straight.isNotEmpty()) {
+        val score = calculateHandScore(HandStrength.Straight, hands.straight, highCards)
+        return HandRating(
+            HandStrength.Straight,
+            score,
+        )
+    }
+
     if (hands.threeOfAKind.isNotEmpty()) {
         val score = calculateHandScore(HandStrength.ThreeOfAKind, hands.threeOfAKind, highCards)
         return HandRating(
@@ -130,17 +131,17 @@ private fun List<Card>.calculateHands(): ScoredHands {
     val pairCombinations = rankFrequency.calculatePairCombinations()
     val flushes = suitFrequency.calculateFlushes(sortedCards)
     val straights = rankFrequency.calculateStraights()
-    val straightFlushes = straights.filter { flushes.contains(it) }
+    val straightFlushes = calculateStraightFlushes(sortedCards)
 
     return ScoredHands(
-        highCard,
-        pairCombinations.pair,
-        pairCombinations.threeOfAKind,
-        pairCombinations.fullHouse,
-        flushes,
-        pairCombinations.fourOfAKind,
-        straights,
-        straightFlushes
+        highCard.sortedDescending(),
+        pairCombinations.pair.sortedDescending(),
+        pairCombinations.threeOfAKind.sortedDescending(),
+        pairCombinations.fullHouse.sortedWith(compareBy({ it.threeOfAKind }, { it.pair })).reversed(),
+        flushes.sortedDescending(),
+        pairCombinations.fourOfAKind.sortedDescending(),
+        straights.sortedDescending(),
+        straightFlushes.sortedDescending()
     )
 }
 
@@ -190,8 +191,8 @@ private fun Map<Int, Int>.calculatePairCombinations(): PairCombinations {
 private fun Map<Card.Suit, Int>.calculateFlushes(sortedCards: List<Card>): List<Int> {
     val flush = mutableListOf<Int>()
     forEach { (key, value) ->
-        if (value > 5) {
-            flush.add(sortedCards.first { it.suit == key }.rank)
+        if (value >= 5) {
+            flush.add(sortedCards.maxBy { it.suit == key }.rank)
         }
     }
     return flush
@@ -222,6 +223,33 @@ private fun Map<Int, Int>.calculateStraights(): List<Int> {
     return straight
 }
 
+private fun calculateStraightFlushes(cards: List<Card>): List<Int> {
+    val straight = mutableListOf<Int>()
+    val aces = cards.filter { it.rank == 14 }
+
+    val editedCards = (cards + aces.map { it.copy(rank = 1) }).sortedBy { it.rank }
+
+    editedCards.groupBy { it.suit }
+        .forEach { suit, cards ->
+            cards.forEachIndexed { index, card ->
+                if (cards.size < index + 5) {
+                    return@forEachIndexed
+                }
+                if (
+                    cards[index + 1].rank == card.rank + 1 &&
+                    cards[index + 2].rank == card.rank + 2 &&
+                    cards[index + 3].rank == card.rank + 3 &&
+                    cards[index + 4].rank == card.rank + 4 &&
+                    cards.subList(index, index + 5).groupBy { it.suit }.size == 1
+                ) {
+                    straight.add(card.rank + 4)
+                }
+            }
+        }
+    return straight
+}
+
+
 private fun calculateHandScore(handStrength: HandStrength, handCards: List<Int>, highCards: List<Int>): Double {
     if (handCards.isEmpty()) return 0.0
     val extraCards = highCards
@@ -233,10 +261,10 @@ private fun calculateHandScore(handStrength: HandStrength, handCards: List<Int>,
 
     return when (handStrength) {
         HandStrength.HighCard -> 0.007 * handCards[0] +
-                0.00007 * extraCards[0] +
-                0.0000007 * extraCards[1] +
-                0.000000007 * extraCards[2] +
-                0.00000000007 * extraCards[3]
+                0.00007 * (handCards.getOrNull(0) ?: 0) +
+                0.0000007 * (handCards.getOrNull(1) ?: 0) +
+                0.000000007 * (handCards.getOrNull(2) ?: 0) +
+                0.00000000007 * (handCards.getOrNull(3) ?: 0)
 
         HandStrength.Pair -> 0.2 + 0.007 * handCards[0] +
                 0.00007 * extraCards[0] +

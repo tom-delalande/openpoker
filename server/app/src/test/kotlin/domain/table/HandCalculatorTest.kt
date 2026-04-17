@@ -3,6 +3,7 @@ package domain.table
 import domain.model.Table.Card
 import domain.model.Table.Card.Suit
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -10,7 +11,7 @@ class HandCalculatorTest {
 
     @Test
     fun `high card is correctly identified`() {
-        val cards = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("5d"))
+        val cards = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("6d"))
         val rating = cards.rateHand()
         assertEquals(HandStrength.HighCard, rating.handStrength)
     }
@@ -80,14 +81,7 @@ class HandCalculatorTest {
 
     @Test
     fun `flush is correctly identified`() {
-        val cards = listOf(c("1h"), c("2h"), c("3h"), c("4h"), c("5h"))
-        val rating = cards.rateHand()
-        assertEquals(HandStrength.Flush, rating.handStrength)
-    }
-
-    @Test
-    fun `flush with high cards is correctly identified`() {
-        val cards = listOf(c("1h"), c("3h"), c("5h"), c("9h"), c("13h"))
+        val cards = listOf(c("1h"), c("2h"), c("3h"), c("4h"), c("6h"))
         val rating = cards.rateHand()
         assertEquals(HandStrength.Flush, rating.handStrength)
     }
@@ -97,6 +91,13 @@ class HandCalculatorTest {
         val cards = listOf(c("1h"), c("2h"), c("3h"), c("4h"), c("5h"))
         val rating = cards.rateHand()
         assertEquals(HandStrength.StraightFlush, rating.handStrength)
+    }
+
+    @Test
+    fun `near straight flush is correctly identified`() {
+        val cards = listOf(c("1h"), c("2h"), c("3h"), c("4h"), c("5d"))
+        val rating = cards.rateHand()
+        assertNotEquals(HandStrength.StraightFlush, rating.handStrength)
     }
 
     @Test
@@ -153,7 +154,7 @@ class HandCalculatorTest {
 
     @Test
     fun `score increases with hand strength - high card to pair`() {
-        val highCard = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("5d")).rateHand()
+        val highCard = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("6d")).rateHand()
         val pair = listOf(c("1h"), c("1d"), c("2s"), c("3c"), c("4d")).rateHand()
         assertTrue(highCard.score < pair.score, "HighCard < Pair")
     }
@@ -188,7 +189,7 @@ class HandCalculatorTest {
 
     @Test
     fun `score increases with hand strength - flush to full house`() {
-        val flush = listOf(c("1h"), c("2h"), c("3h"), c("4h"), c("5h")).rateHand()
+        val flush = listOf(c("1h"), c("2h"), c("3h"), c("4h"), c("6h")).rateHand()
         val fullHouse = listOf(c("1h"), c("1d"), c("1s"), c("2c"), c("2d")).rateHand()
         assertTrue(flush.score < fullHouse.score, "Flush < FullHouse")
     }
@@ -209,7 +210,7 @@ class HandCalculatorTest {
 
     @Test
     fun `higher pair beats lower pair`() {
-        val lowPair = listOf(c("1h"), c("1d"), c("2s"), c("3c"), c("4d")).rateHand()
+        val lowPair = listOf(c("2h"), c("2d"), c("6s"), c("3c"), c("4d")).rateHand()
         val highPair = listOf(c("13h"), c("13d"), c("2s"), c("3c"), c("4d")).rateHand()
         assertTrue(lowPair.score < highPair.score, "LowPair < HighPair")
     }
@@ -230,8 +231,8 @@ class HandCalculatorTest {
 
     @Test
     fun `three of a kind - higher trips wins`() {
-        val lowTrips = listOf(c("1h"), c("1d"), c("1s"), c("2c"), c("3d")).rateHand()
-        val highTrips = listOf(c("13h"), c("13d"), c("13s"), c("2c"), c("3d")).rateHand()
+        val highTrips = listOf(c("1h"), c("1d"), c("1s"), c("2c"), c("3d")).rateHand()
+        val lowTrips = listOf(c("2h"), c("2d"), c("13s"), c("2c"), c("3d")).rateHand()
         assertTrue(lowTrips.score < highTrips.score, "LowTrips < HighTrips")
     }
 
@@ -239,6 +240,20 @@ class HandCalculatorTest {
     fun `straight - higher straight wins`() {
         val lowStraight = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("5d")).rateHand()
         val highStraight = listOf(c("10h"), c("11d"), c("12s"), c("13c"), c("1d")).rateHand()
+        assertTrue(lowStraight.score < highStraight.score, "LowStraight < HighStraight")
+    }
+
+    @Test
+    fun `straight with ace on top - higher straight wins`() {
+        val lowStraight = listOf(c("10h"), c("11d"), c("12s"), c("13c"), c("9d")).rateHand()
+        val highStraight = listOf(c("1h"), c("10d"), c("11s"), c("12c"), c("13d")).rateHand()
+        assertTrue(lowStraight.score < highStraight.score, "LowStraight < HighStraight (Ace)")
+    }
+
+    @Test
+    fun `straight - 10-straight and 9 straight vs 9 straight - higher straight wins`() {
+        val lowStraight = listOf(c("6h"), c("7d"), c("8s"), c("9c"), c("10d"), c("13d")).rateHand()
+        val highStraight = listOf(c("6h"), c("7d"), c("8s"), c("9c"), c("10d"), c("11d")).rateHand()
         assertTrue(lowStraight.score < highStraight.score, "LowStraight < HighStraight")
     }
 
@@ -251,14 +266,14 @@ class HandCalculatorTest {
 
     @Test
     fun `full house - higher trips wins`() {
-        val lowFullHouse = listOf(c("1h"), c("1d"), c("1s"), c("2c"), c("2d")).rateHand()
-        val highFullHouse = listOf(c("13h"), c("13d"), c("13s"), c("2c"), c("2d")).rateHand()
+        val highFullHouse = listOf(c("1h"), c("1d"), c("1s"), c("2c"), c("2d")).rateHand()
+        val lowFullHouse = listOf(c("13h"), c("13d"), c("13s"), c("2c"), c("2d")).rateHand()
         assertTrue(lowFullHouse.score < highFullHouse.score, "LowFullHouse < HighFullHouse")
     }
 
     @Test
     fun `four of a kind - higher quads wins`() {
-        val lowQuads = listOf(c("1h"), c("1d"), c("1s"), c("1c"), c("2d")).rateHand()
+        val lowQuads = listOf(c("2h"), c("2d"), c("2s"), c("1c"), c("2d")).rateHand()
         val highQuads = listOf(c("13h"), c("13d"), c("13s"), c("13c"), c("2d")).rateHand()
         assertTrue(lowQuads.score < highQuads.score, "LowQuads < HighQuads")
     }
@@ -272,7 +287,7 @@ class HandCalculatorTest {
 
     @Test
     fun `high card - higher kicker wins`() {
-        val lowHighCard = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("5d")).rateHand()
+        val lowHighCard = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("6d")).rateHand()
         val highHighCard = listOf(c("1h"), c("2d"), c("3s"), c("4c"), c("7d")).rateHand()
         assertTrue(lowHighCard.score < highHighCard.score, "LowHighCard < HighHighCard")
     }

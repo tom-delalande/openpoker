@@ -101,7 +101,7 @@ class PokerScenarioTest {
             blinds = 5.0 to 10.0,
             seed = 1,
             stacks = listOf(100.0, 1000.0, 1000.0),
-            cards = "9d 2d 7s 6s 1c 12c 11c 10c 9c 2c 3c"
+            cards = "9d 2d 7s 6s 1c 1c 5d 7h 10s 13s 1h"
         ) {
             postBlinds()
             dealHoleCards()
@@ -131,8 +131,50 @@ class PokerScenarioTest {
 
         r.assertFinishedPots(
             1 to 300.0,
-            2 to 910.0,
-            3 to 890.0
+            2 to 890.0,
+            3 to 910.0
+        )
+    }
+
+    @Test
+    fun `given a player goes all in with less than another player's bets and draws, then pot is returned`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(100.0, 1000.0, 1000.0),
+            cards = "9d 2d 7s 6s 1c 12c 11c 10c 9c 2c 3c"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().check()
+            p3().bet(10.0)
+            p1().raise(90.0)
+            p2().call(90.0)
+            p3().call(80.0)
+            dealTurn()
+            manually {
+                assertEquals(Street.Turn, it.currentRound?.street)
+            }
+            p2().check()
+            p3().bet(10.0)
+            p2().call(10.0)
+            dealRiver()
+            manually {
+                assertEquals(Street.River, it.currentRound?.street)
+            }
+            p2().check()
+            p3().check()
+        }
+
+        r.assertFinishedPots(
+            1 to 100.0,
+            2 to 1000.0,
+            3 to 1000.0
         )
     }
 
@@ -216,8 +258,8 @@ class PokerScenarioTest {
         ) {
             postBlinds()
             dealHoleCards()
-            p1().call(10.0)
-            p2().check()
+            p2().call(5.0)
+            p1().check()
             dealFlop()
             p2().check()
             p1().bet(10.0)
@@ -227,13 +269,13 @@ class PokerScenarioTest {
             p1().bet(20.0)
             p2().call(20.0)
             dealRiver()
-            p1().check()
             p2().check()
+            p1().check()
         }
 
         r.assertFinishedPots(
-            1 to 985.0,
-            2 to 1015.0
+            1 to 1040.0,
+            2 to 960.0
         )
     }
 
@@ -243,7 +285,7 @@ class PokerScenarioTest {
             players = 3,
             blinds = 5.0 to 10.0,
             seed = 1,
-            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c 10d"
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c 10d 6c"
         ) {
             postBlinds()
             dealHoleCards()
@@ -270,9 +312,9 @@ class PokerScenarioTest {
         }
 
         r.assertFinishedPots(
-            1 to 210.0,
-            2 to 210.0,
-            3 to 180.0
+            1 to 1000.0,
+            2 to 1000.0,
+            3 to 1000.0
         )
     }
 
@@ -288,9 +330,9 @@ class PokerScenarioTest {
         ) {
             postBlinds()
             dealHoleCards()
+            p4().fold()
             p1().fold()
             p2().fold()
-            p3().fold()
             manually {
                 val ended =
                     it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
@@ -371,7 +413,8 @@ class PokerScenarioTest {
         ) {
             postBlinds()
             dealHoleCards()
-            p1().bet(20.0)
+            p4().raise(20.0)
+            p1().fold()
             p2().fold()
             p3().fold()
             manually {
@@ -396,7 +439,6 @@ class PokerScenarioTest {
             postBlinds()
             dealHoleCards()
             p1().standUp()
-            p2().check()
             manually {
                 val ended =
                     it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
@@ -416,8 +458,8 @@ class PokerScenarioTest {
         ) {
             postBlinds()
             dealHoleCards()
-            p1().call(10.0)
-            p2().standUp()
+            p2().call(5.0)
+            p1().standUp()
             manually {
                 val ended =
                     it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
@@ -445,8 +487,6 @@ class PokerScenarioTest {
             p3().bet(15.0)
             p1().call(15.0)
             dealTurn()
-            p3().check()
-            p1().check()
             p3().bet(20.0)
             p1().call(20.0)
             dealRiver()
@@ -454,7 +494,7 @@ class PokerScenarioTest {
             p1().check()
         }
 
-        r.assertStreet(Street.River)
+        r.assertStreet(Street.Showdown)
     }
 
     // ==================== SIT DOWN SCENARIOS ====================
@@ -469,18 +509,18 @@ class PokerScenarioTest {
         ) {
             postBlinds()
             dealHoleCards()
-            p1().call(10.0)
-            p2().check()
+            p2().call(5.0)
+            p1().check()
             p3().sitDown(100.0)
             dealFlop()
             p2().check()
             p1().check()
             dealTurn()
-            p1().check()
             p2().check()
+            p1().check()
             dealRiver()
-            p1().check()
             p2().check()
+            p1().check()
             startNextHand()
             postBlinds()
             dealHoleCards()
@@ -500,8 +540,8 @@ class PokerScenarioTest {
         ) {
             postBlinds()
             dealHoleCards()
-            p1().call(10.0)
-            p2().check()
+            p2().call(5.0)
+            p1().check()
             dealFlop()
             p2().check()
             p1().check()
@@ -566,15 +606,14 @@ class PokerScenarioTest {
             dealHoleCards()
             p1().fold()
             p2().fold()
-            p3().check()
             manually {
-                assertEquals(1, it.dealerSeat)
+                assertEquals(0, it.dealerSeat)
             }
             startNextHand()
             postBlinds()
             dealHoleCards()
             manually {
-                assertEquals(2, it.dealerSeat, "Button should move to player 2")
+                assertEquals(1, it.dealerSeat, "Button should move to player 2")
             }
         }
     }
@@ -596,9 +635,9 @@ class PokerScenarioTest {
             p1().call(10.0)
             p2().call(5.0)
             p3().check()
-            p1().fold()
+            dealFlop()
             p2().fold()
-            p3().check()
+            p3().fold()
             startNextHand()
             postBlinds()
             dealHoleCards()
@@ -618,28 +657,30 @@ class PokerScenarioTest {
             blinds = 5.0 to 10.0,
             seed = 1,
             stacks = listOf(50.0, 100.0, 100.0, 100.0),
-            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c 10d 11c 12h 13s"
+            cards = "2h 7d 13s 13c 2c 7d 1s 1h 9c 11d 6c 2h 1s"
+            //       ^P2   ^P3     ^P4   ^P1   ^Table
         ) {
             postBlinds()
             dealHoleCards()
-            p1().fold()
-            p2().call(10.0)
-            p3().call(10.0)
-            p4().check()
-            p2().raise(40.0)
-            p3().call(40.0)
-            p4().call(40.0)
+            p4().fold()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            p1().raise(40.0)
+            p2().call(40.0)
             p3().raise(50.0)
-            p4().call(50.0)
+            p2().call(50.0)
             dealFlop()
-            p4().check()
             dealTurn()
-            p4().check()
             dealRiver()
-            p4().check()
         }
 
-        r.assertPotCount(3)
+        r.assertFinishedPots(
+            1 to 150.0,
+            2 to 40.0,
+            3 to 60.0,
+            4 to 100.0,
+        )
     }
 
     @Test
@@ -747,11 +788,10 @@ class PokerScenarioTest {
             dealRiver()
         }
 
-        r.assertPotCount(2)
         r.assertFinishedPots(
-            1 to 60.0,
-            2 to 120.0,
-            3 to 70.0,
+            1 to 110.0, // 10 from p3, 50 from p2
+            2 to 50.0, // gets their 40 back
+            3 to 190.0,
         )
     }
 
@@ -769,15 +809,22 @@ class PokerScenarioTest {
             p1().call(10.0)
             p2().call(5.0)
             p3().check()
-            p1().raise(20.0)
+            dealFlop()
+            p2().check()
+            p3().check()
+            p1().bet(20.0)
             p2().raise(50.0)
             p3().raise(110.0)
-            dealFlop()
             dealTurn()
             dealRiver()
         }
 
         r.assertPotCount(3)
+        r.assertFinishedPots(
+            1 to 90.0,
+            2 to 60.0,
+            3 to 60.0
+        )
     }
 
     @Test
@@ -795,16 +842,15 @@ class PokerScenarioTest {
             p2().call(5.0)
             p3().check()
             dealFlop()
-            p2().raise(90.0)
+            p2().bet(90.0)
             p3().call(90.0)
             p1().call(90.0)
             dealTurn()
-            p3().bet(30.0)
-            p1().fold()
-            p2().call(30.0)
+            p2().bet(30.0)
+            p3().call(30.0)
             dealRiver()
-            p3().check()
             p2().check()
+            p3().check()
         }
 
         r.assertPotCount(2)
@@ -821,19 +867,16 @@ class PokerScenarioTest {
             postBlinds()
             dealHoleCards()
             p1().call(8.0)
-            p2().call(10.0)
+            p2().call(5.0)
             p3().check()
             dealFlop()
             p2().bet(20.0)
             p3().fold()
-            p1().call(10.0)
             dealTurn()
-            p2().check()
             dealRiver()
-            p2().check()
         }
 
-        r.assertStreet(Street.River)
+        r.assertStreet(Street.Showdown)
     }
 
     @Test
@@ -851,16 +894,9 @@ class PokerScenarioTest {
             p3().raise(50.0)
             p1().fold()
             p2().raise(145.0)
-            p3().call(145.0)
+            p3().call(95.0)
             dealFlop()
-            p3().check()
-            dealTurn()
-            p3().check()
-            dealRiver()
-            p3().check()
         }
-
-        r.assertPotCount(2)
     }
 
     // ==================== TIMEOUT SCENARIOS ====================
@@ -911,7 +947,7 @@ class PokerScenarioTest {
             p1().check()
         }
 
-        r.assertStreet(Street.River)
+        r.assertStreet(Street.Showdown)
     }
 
     @Test
@@ -937,11 +973,11 @@ class PokerScenarioTest {
             p3().check()
             p1().check()
             dealRiver()
-            p1().check()
             p3().check()
+            p1().check()
         }
 
-        r.assertStreet(Street.River)
+        r.assertStreet(Street.Showdown)
     }
 
     @Test
@@ -988,7 +1024,6 @@ class PokerScenarioTest {
             dealHoleCards()
             p1().standUp()
             p2().standUp()
-            p3().check()
             manually {
                 val ended =
                     it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
@@ -1009,7 +1044,6 @@ class PokerScenarioTest {
             postBlinds()
             dealHoleCards()
             p1().standUp()
-            p2().check()
             manually {
                 val ended =
                     it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
@@ -1020,29 +1054,35 @@ class PokerScenarioTest {
     }
 
     @Test
-    fun `player timeouts but all-in player remains and hand continues`() {
+    fun `player timeouts but all-in player remains and hand continues and all in player can win`() {
         val r = pokerScenario(
             players = 3,
             blinds = 5.0 to 10.0,
             seed = 1,
             stacks = listOf(100.0, 200.0, 200.0),
-            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c"
+            cards = "3h 3d 2s 2c 1c 1d 7s 8h 9c 11c 13c"
         ) {
             postBlinds()
             dealHoleCards()
-            p1().raise(90.0)
-            p2().call(10.0)
-            p3().check()
-            p2().standUp()
-            p3().check()
+            p1().raise(100.0)
+            p2().call(95.0)
+            p3().call(90.0)
+            p1().standUp()
             dealFlop()
+            p2().check()
             p3().check()
             dealTurn()
+            p2().check()
             p3().check()
             dealRiver()
+            p2().check()
             p3().check()
         }
 
-        r.assertStreet(Street.River)
+        r.assertFinishedPots(
+            1 to 300.0,
+            2 to 100.0,
+            3 to 100.0
+        )
     }
 }

@@ -7,7 +7,9 @@ package domain.model
 
 import common.InstantSerializer
 import common.UUIDSerializer
+import domain.model.Table.LivePlayerInfo
 import java.time.Instant
+import kotlin.collections.filterNot
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 
@@ -323,29 +325,29 @@ data class Table(
     }
 
     val lastActivePlayerToAct: LivePlayerInfo?
-        get() = players.find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
+        get() = players.filterNot { it.isNew }.find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
 
     fun LivePlayerInfo.nextPlayerToAct(excludeAllInPlayers: Boolean = true): LivePlayerInfo {
-        return players.sortedBy { it.seat }.shift(seat + 1)
-            .first { !it.isOut && !it.isSittingOut && this.playerId != it.playerId && (if (excludeAllInPlayers) !it.isAllIn else true) }
+        return activePlayers.shiftSeat(seat + 1)
+            .first { !it.isOut && this.playerId != it.playerId && (if (excludeAllInPlayers) !it.isAllIn else true) }
     }
 
     val nextPlayerToAct: LivePlayerInfo
         get() = lastActivePlayerToAct?.nextPlayerToAct() ?: firstActivePlayerAfterDealer
 
     val firstActivePlayerAfterDealer: LivePlayerInfo
-        get() = players.filterNot { it.isSittingOut }.sortedBy { it.seat }.shift(dealerSeat + 1).first()
+        get() = players.shiftSeat(dealerSeat + 1).first { !it.isSittingOut }
 
     val activePlayers: List<LivePlayerInfo>
-        get() = players.filterNot { it.isSittingOut }
+        get() = players.filterNot { it.isSittingOut || it.isNew }
 
     val players: List<LivePlayerInfo>
         get() = rounds.flatMap { it.actions }.fold(listOf()) { players, action ->
             when (action) {
-                Round.Action.HandStarted -> players
+                Round.Action.HandStarted -> players.map { it.copy(isNew = false) }
                 is Round.Action.HandEnded -> players.map { it.copy(isAllIn = false) }
                 is Round.Action.RoundStarted -> players
-                    .filterNot { it.isSittingOut }
+                    .filterNot { it.isSittingOut && !it.isAllIn }
                     .map { it.copy(contributionThisStreet = 0.0) }
 
                 is Round.Action.DealCommunityCards -> players.map { it.copy(cards = it.cards + action.cards) }
@@ -356,6 +358,7 @@ data class Table(
                             seat = action.seat,
                             name = action.playerName,
                             initialStack = action.stack,
+                            isNew = players.none {  it.playerId == action.playerId},
                             stack = action.stack,
                             isAllIn = false,
                         )
@@ -470,22 +473,20 @@ data class Table(
         val stack: Double,
         val contributionThisStreet: Double = 0.0,
         val isOut: Boolean = false,
+        val isNew: Boolean = false,
         val isSittingOut: Boolean = false,
         val isAllIn: Boolean = false,
         val lastAction: Round.Action.PlayerAction? = null,
         val cards: List<Card> = emptyList(),
         val pocketCards: List<Card> = emptyList(),
     )
-
-    data class InitialPlayerInfo(
-        val playerId: Int,
-        val seat: Int,
-    )
 }
 
-internal fun <T> List<T>.shift(shift: Int): List<T> {
+internal fun List<LivePlayerInfo>.shiftSeat(seat: Int): List<LivePlayerInfo> {
     if (isEmpty()) return this
-    val n = size
-    val k = ((shift % n) + n) % n
-    return drop(k) + take(k)
+    val sorted = this.sortedBy { it.seat }
+
+    val under = sorted.filter { it.seat < seat }
+    val over = sorted.filter { it.seat >= seat }
+    return over + under
 }
