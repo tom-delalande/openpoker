@@ -14,4 +14,3 @@ client/playwright-report
 client/test-results/integration-join-table-sho-8ab66-up-3-clients-and-join-table
 server/.kotlin/sessions
 client/out
-client/.env.*
