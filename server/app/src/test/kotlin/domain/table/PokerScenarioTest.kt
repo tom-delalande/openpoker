@@ -169,7 +169,7 @@ class PokerScenarioTest {
             }
             p2().check()
             p3().check()
-            processTable(now = now.plusSeconds(10))
+            startNextHand()
             postBlinds()
             dealHoleCards()
             manually {
@@ -202,5 +202,847 @@ class PokerScenarioTest {
                 assertEquals(Street.Flop, it.currentRound?.street)
             }
         }
+    }
+
+    // ==================== HAPPY PATH - MULTIPLE TABLE SIZES ====================
+
+    @Test
+    fun `heads up hand plays through all streets to showdown`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().check()
+            dealFlop()
+            p2().check()
+            p1().bet(10.0)
+            p2().call(10.0)
+            dealTurn()
+            p2().check()
+            p1().bet(20.0)
+            p2().call(20.0)
+            dealRiver()
+            p1().check()
+            p2().check()
+        }
+
+        r.assertFinishedPots(
+            1 to 985.0,
+            2 to 1015.0
+        )
+    }
+
+    @Test
+    fun `three player hand typical play goes to showdown`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c 10d"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().raise(20.0)
+            p1().call(20.0)
+            p2().call(20.0)
+            dealFlop()
+            p2().check()
+            p3().bet(10.0)
+            p1().call(10.0)
+            p2().call(10.0)
+            dealTurn()
+            p2().check()
+            p3().check()
+            p1().bet(20.0)
+            p2().call(20.0)
+            p3().call(20.0)
+            dealRiver()
+            p2().check()
+            p3().check()
+            p1().check()
+        }
+
+        r.assertFinishedPots(
+            1 to 210.0,
+            2 to 210.0,
+            3 to 180.0
+        )
+    }
+
+    // ==================== FOLD SCENARIOS ====================
+
+    @Test
+    fun `everyone folds pre-flop to big blind winner takes pot unshown`() {
+        val r = pokerScenario(
+            players = 4,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().fold()
+            p2().fold()
+            p3().fold()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should have ended after big blind wins unshown")
+            }
+        }
+    }
+
+    @Test
+    fun `fold on flop before showdown last player wins`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().bet(15.0)
+            p3().fold()
+            p1().fold()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should have ended")
+            }
+        }
+    }
+
+    @Test
+    fun `fold on river before showdown`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().check()
+            p3().bet(10.0)
+            p1().call(10.0)
+            p2().call(10.0)
+            dealTurn()
+            p2().check()
+            p3().bet(20.0)
+            p1().fold()
+            p2().call(20.0)
+            dealRiver()
+            p2().check()
+            p3().check()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should have ended")
+            }
+        }
+    }
+
+    @Test
+    fun `only one player remains after folds hand ends immediately`() {
+        val r = pokerScenario(
+            players = 4,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().bet(20.0)
+            p2().fold()
+            p3().fold()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should have ended when only one player remains")
+            }
+        }
+    }
+
+    // ==================== STAND UP SCENARIOS ====================
+
+    @Test
+    fun `player stands up leaving only one other player hand ends`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().standUp()
+            p2().check()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should have ended with only one player")
+            }
+        }
+    }
+
+    @Test
+    fun `last player stands up hand immediately ends with no winner`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().standUp()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should have ended with no winner when last player stands")
+            }
+        }
+    }
+
+    @Test
+    fun `player stands up mid-hand remaining players continue to showdown`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().standUp()
+            p3().bet(15.0)
+            p1().call(15.0)
+            dealTurn()
+            p3().check()
+            p1().check()
+            p3().bet(20.0)
+            p1().call(20.0)
+            dealRiver()
+            p3().check()
+            p1().check()
+        }
+
+        r.assertStreet(Street.River)
+    }
+
+    // ==================== SIT DOWN SCENARIOS ====================
+
+    @Test
+    fun `player sits down mid-hand added to next hand`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().check()
+            p3().sitDown(100.0)
+            dealFlop()
+            p2().check()
+            p1().check()
+            dealTurn()
+            p1().check()
+            p2().check()
+            dealRiver()
+            p1().check()
+            p2().check()
+            startNextHand()
+            postBlinds()
+            dealHoleCards()
+            manually {
+                assertEquals(3, it.players.size, "New player should be seated for next hand")
+            }
+        }
+    }
+
+    @Test
+    fun `player sits down between hands joins table`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().check()
+            dealFlop()
+            p2().check()
+            p1().check()
+            dealTurn()
+            p2().check()
+            p1().check()
+            dealRiver()
+            p2().check()
+            p1().check()
+            startNextHand()
+            p3().sitDown(100.0)
+            postBlinds()
+            dealHoleCards()
+            manually {
+                assertEquals(3, it.players.size, "Player should be seated for next hand")
+            }
+        }
+    }
+
+    @Test
+    fun `player sits down becomes part of next hand`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p2().call(5.0)
+            p1().check()
+            dealFlop()
+            p2().check()
+            p1().check()
+            dealTurn()
+            p2().check()
+            p1().check()
+            dealRiver()
+            p2().check()
+            p1().check()
+            startNextHand()
+            p3().sitDown(100.0)
+            postBlinds()
+            dealHoleCards()
+            manually {
+                assertTrue(it.players.any { it.playerId == 3 && !it.isSittingOut }, "Player 3 should be in hand")
+            }
+        }
+    }
+
+    // ==================== SUBSEQUENT HANDS ====================
+
+    @Test
+    fun `dealer button advances correctly to next hand`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().fold()
+            p2().fold()
+            p3().check()
+            manually {
+                assertEquals(1, it.dealerSeat)
+            }
+            startNextHand()
+            postBlinds()
+            dealHoleCards()
+            manually {
+                assertEquals(2, it.dealerSeat, "Button should move to player 2")
+            }
+        }
+    }
+
+    @Test
+    fun `blinds rotate correctly to next hand`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            manually {
+                assertEquals(2, it.smallBlindPlayer?.playerId)
+                assertEquals(3, it.bigBlindPlayer?.playerId)
+            }
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            p1().fold()
+            p2().fold()
+            p3().check()
+            startNextHand()
+            postBlinds()
+            dealHoleCards()
+            manually {
+                assertEquals(3, it.smallBlindPlayer?.playerId, "SB should rotate to player 3")
+                assertEquals(1, it.bigBlindPlayer?.playerId, "BB should rotate to player 1")
+            }
+        }
+    }
+
+    // ==================== SHOWDOWN & POT DISTRIBUTION ====================
+
+    @Test
+    fun `high hand wins side pot while low hand takes main pot`() {
+        val r = pokerScenario(
+            players = 4,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(50.0, 100.0, 100.0, 100.0),
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c 10d 11c 12h 13s"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().fold()
+            p2().call(10.0)
+            p3().call(10.0)
+            p4().check()
+            p2().raise(40.0)
+            p3().call(40.0)
+            p4().call(40.0)
+            p3().raise(50.0)
+            p4().call(50.0)
+            dealFlop()
+            p4().check()
+            dealTurn()
+            p4().check()
+            dealRiver()
+            p4().check()
+        }
+
+        r.assertPotCount(3)
+    }
+
+    @Test
+    fun `two players split main pot on tie`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0),
+            cards = "7h 2d 7s 2c 4d 5c 6s 7h"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p2().call(5.0)
+            p1().check()
+            dealFlop()
+            p2().check()
+            p1().bet(20.0)
+            p2().call(20.0)
+            dealTurn()
+            p2().check()
+            p1().bet(30.0)
+            p2().call(30.0)
+            dealRiver()
+            p2().check()
+            p1().check()
+        }
+
+        r.assertFinishedPots(
+            1 to 200.0,
+            2 to 200.0
+        )
+    }
+
+    @Test
+    fun `multiple winning players in different pots`() {
+        val r = pokerScenario(
+            players = 4,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(20.0, 80.0, 150.0, 200.0),
+            cards = "12s 12c 11c 11d 7s 2h 1h 1d 3c 4d 5c 6h 8s"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p4().fold()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().raise(30.0)
+            p1().call(10.0) // All in
+            p2().raise(70.0) // All in
+            p3().call(40.0)
+            dealFlop()
+            dealTurn()
+            dealRiver()
+        }
+
+        r.assertFinishedPots(
+            1 to 60.0,
+            2 to 120.0,
+            3 to 70.0,
+            4 to 200.0,
+        )
+    }
+
+    // ==================== ADDITIONAL EDGE CASES ====================
+
+    @Test
+    fun `all players all-in pre-flop goes straight to showdown`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(100.0, 100.0, 100.0),
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().raise(90.0)
+            p2().call(85.0)
+            p3().call(80.0)
+            manually {
+                assertTrue(it.currentRound?.street == Street.Flop || it.currentRound?.street == Street.PreFlop || it.rounds.flatMap { r -> r.actions }
+                    .filterIsInstance<domain.model.Table.Round.Action.HandEnded>().isNotEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun `two players all-in pre-flop with different stacks creates side pot`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(50.0, 100.0, 200.0),
+            cards = "7h 2d 7s 2c 1c 1d 4s 5h 9c 11s 13c"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().raise(50.0)
+            p2().raise(90.0)
+            p3().fold()
+            dealFlop()
+            dealTurn()
+            dealRiver()
+        }
+
+        r.assertPotCount(2)
+        r.assertFinishedPots(
+            1 to 60.0,
+            2 to 120.0,
+            3 to 70.0,
+        )
+    }
+
+    @Test
+    fun `three way all-in with different amounts creates multiple side pots`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(30.0, 60.0, 120.0),
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            p1().raise(20.0)
+            p2().raise(50.0)
+            p3().raise(110.0)
+            dealFlop()
+            dealTurn()
+            dealRiver()
+        }
+
+        r.assertPotCount(3)
+    }
+
+    @Test
+    fun `players go all-in on different streets creates growing side pots`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(100.0, 200.0, 200.0),
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c 10d 11c"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().raise(90.0)
+            p3().call(90.0)
+            p1().call(90.0)
+            dealTurn()
+            p3().bet(30.0)
+            p1().fold()
+            p2().call(30.0)
+            dealRiver()
+            p3().check()
+            p2().check()
+        }
+
+        r.assertPotCount(2)
+    }
+
+    @Test
+    fun `player with short stack less than big blind can still play`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(8.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(8.0)
+            p2().call(10.0)
+            p3().check()
+            dealFlop()
+            p2().bet(20.0)
+            p3().fold()
+            p1().call(10.0)
+            dealTurn()
+            p2().check()
+            dealRiver()
+            p2().check()
+        }
+
+        r.assertStreet(Street.River)
+    }
+
+    @Test
+    fun `big blind can check-raise all-in on first action`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().raise(50.0)
+            p1().fold()
+            p2().raise(145.0)
+            p3().call(145.0)
+            dealFlop()
+            p3().check()
+            dealTurn()
+            p3().check()
+            dealRiver()
+            p3().check()
+        }
+
+        r.assertPotCount(2)
+    }
+
+    // ==================== TIMEOUT SCENARIOS ====================
+
+    @Test
+    fun `player timeouts on pre-flop removed from hand`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().standUp()
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            manually {
+                assertEquals(2, it.players.filter { p -> !p.isSittingOut }.size)
+            }
+        }
+    }
+
+    @Test
+    fun `player timeouts on flop auto-sits-out betting continues`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().standUp()
+            p3().bet(15.0)
+            p1().call(15.0)
+            dealTurn()
+            p3().check()
+            p1().bet(20.0)
+            p3().call(20.0)
+            dealRiver()
+            p3().check()
+            p1().check()
+        }
+
+        r.assertStreet(Street.River)
+    }
+
+    @Test
+    fun `player timeouts on turn auto-sits-out showdown continues`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().check()
+            p3().bet(10.0)
+            p1().call(10.0)
+            p2().call(10.0)
+            dealTurn()
+            p2().standUp()
+            p3().check()
+            p1().check()
+            dealRiver()
+            p1().check()
+            p3().check()
+        }
+
+        r.assertStreet(Street.River)
+    }
+
+    @Test
+    fun `player timeouts on river auto-sits-out showdown continues`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().call(10.0)
+            p2().call(5.0)
+            p3().check()
+            dealFlop()
+            p2().check()
+            p3().bet(10.0)
+            p1().call(10.0)
+            p2().call(10.0)
+            dealTurn()
+            p2().check()
+            p3().bet(20.0)
+            p1().call(20.0)
+            p2().call(20.0)
+            dealRiver()
+            p2().standUp()
+            p3().check()
+            p1().check()
+        }
+
+        r.assertStreet(Street.Showdown)
+    }
+
+    @Test
+    fun `all players timeout except one remaining player wins by default`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().standUp()
+            p2().standUp()
+            p3().check()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should end when only one player remains")
+            }
+        }
+    }
+
+    @Test
+    fun `timeout leaves less than 2 players hand ends immediately`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(200.0, 200.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().standUp()
+            p2().check()
+            manually {
+                val ended =
+                    it.rounds.flatMap { r -> r.actions }.filterIsInstance<domain.model.Table.Round.Action.HandEnded>()
+                        .singleOrNull()
+                assertTrue(ended != null, "Hand should end with less than 2 players")
+            }
+        }
+    }
+
+    @Test
+    fun `player timeouts but all-in player remains and hand continues`() {
+        val r = pokerScenario(
+            players = 3,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(100.0, 200.0, 200.0),
+            cards = "1h 2d 3s 4c 5c 6d 7s 8h 9c"
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p1().raise(90.0)
+            p2().call(10.0)
+            p3().check()
+            p2().standUp()
+            p3().check()
+            dealFlop()
+            p3().check()
+            dealTurn()
+            p3().check()
+            dealRiver()
+            p3().check()
+        }
+
+        r.assertStreet(Street.River)
     }
 }

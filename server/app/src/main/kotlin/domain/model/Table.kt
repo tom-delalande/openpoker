@@ -30,6 +30,7 @@ data class Table(
     val startedAt: Instant? = null,
     val finishedAt: Instant? = null,
     val defaultCards: List<Card> = emptyList(),
+    val timeoutDurationInSeconds: Long = 10,
     val seed: Long,
 ) {
     val currentRound: Round?

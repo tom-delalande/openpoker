@@ -25,6 +25,8 @@ fun createTable(
     smallBlindAmount: Double = DEFAULT_SMALL_BLIND_AMOUNT,
     bigBlindAmount: Double = DEFAULT_BIG_BLIND_AMOUNT,
     anteAmount: Double = DEFAULT_ANTE_AMOUNT,
+    minPlayers: Int = 2,
+    maxPlayers: Int = 3,
     seed: Long = Random.nextLong(),
     defaultCards: List<Table.Card> = emptyList(),
 ): Table {
@@ -34,6 +36,8 @@ fun createTable(
             betType = Table.BetLimit.BetType.NoLimit,
             betCap = null,
         ),
+        minPlayers = minPlayers,
+        maxPlayers = maxPlayers,
         tableSize = players.size,
         dealerSeat = 0,
         smallBlindAmount = smallBlindAmount,
@@ -229,8 +233,7 @@ fun Table.processPlayerAction(playerId: Int, action: PlayerActionRequest, now: I
         throw IllegalStateException("Unexpected action. playerId[$playerId] action[$action] lastEvent[$lastAction]")
     }
     if (lastAction.playerId != playerId) {
-
-        throw IllegalStateException("Unexpected action for player. playerId[$playerId] expectedPlayerId[${lastAction.playerId}]")
+        throw IllegalStateException("Unexpected action for player. playerId[$playerId] expectedPlayerId[${lastAction.playerId}] action[$action]")
     }
 
     val actionOptions = lastAction.actionOptions
@@ -383,7 +386,12 @@ private fun Table.attemptFinishRound(now: Instant): Table {
         return finishHand(now)
     }
 
-    if (players.all { it.isOut || it.isAllIn }) {
+    val onlyRemainingPlayer = players.singleOrNull {
+        !it.isAllIn &&
+                !it.isOut &&
+                !it.isSittingOut
+    }
+    if (players.all { it.isOut || it.isAllIn } || onlyRemainingPlayer != null && onlyRemainingPlayer == lastActivePlayerToAct) {
         val additionalRounds = buildList {
             val cards = getCards(5)
             if (currentRound!!.id < 1) {
@@ -506,9 +514,6 @@ private fun Table.attemptFinishRound(now: Instant): Table {
 
 private fun Table.finishHand(now: Instant): Table {
     if (isFinished) return this
-    val ascendingPlayerContributions = players
-        .map { it to (it.initialStack - it.stack) }
-        .sortedBy { it.second }
 
     val handRatings = calculateSortedHandRatings()
     if (handRatings.isEmpty()) return copy(
@@ -538,7 +543,6 @@ private fun Table.finishHand(now: Instant): Table {
     val inPlayers =
         activePlayers.filterNot { it.isOut || it.isSittingOut }.sortedBy { it.seat }.shift(firstPlayerToShow.seat)
 
-    val allPlayersContributions = ascendingPlayerContributions
     val allContributions = players
         .map { player -> player to (player.initialStack - player.stack) }
         .sortedBy { it.second }
@@ -617,13 +621,6 @@ private fun Table.finishHand(now: Instant): Table {
     )
 }
 
-private fun Table.calculateWinners(): List<Int> {
-    val handRatings =
-        players.filterNot { it.isOut && !it.isSittingOut }.associateWith { (it.cards).rateHand().score }
-    val winningRating = handRatings.maxOf { it.value }
-    return handRatings.filterValues { it == winningRating }.map { it.key.playerId }
-}
-
 private fun Table.calculateWinnersFor(eligiblePlayers: List<Table.LivePlayerInfo>): List<Int> {
     val activeEligiblePlayers = eligiblePlayers.filterNot { it.isOut && !it.isSittingOut }
     val handRatings = activeEligiblePlayers.associateWith { it.cards.rateHand().score }
@@ -687,18 +684,17 @@ private fun Table.requestNextAction(now: Instant): Table {
 
     }
 
-
-    logger.info("Request actions. playerId[${nextPlayerToAct.playerId}] options[${actionOptions}]")
+    logger.debug("Request actions. playerId[{}] options[{}]", nextPlayerToAct.playerId, actionOptions)
     val actionRequest = RequestAction(
         playerId = nextPlayerToAct.playerId,
         actionOptions = actionOptions,
-        expiry = now.plusSeconds(10),
+        expiry = now.plusSeconds(timeoutDurationInSeconds),
     )
     return appendAction(actionRequest)
 }
 
 private fun Table.timeoutCurrentActionRequest(latestAction: RequestAction): Table {
-    logger.info("Timeout. playerId[${latestAction.playerId}]")
+    logger.debug("Timeout. playerId[${latestAction.playerId}]")
     val defaultAction = latestAction.actionOptions.first()
     val playerId = latestAction.playerId
     val player = players.first { it.playerId == playerId }

@@ -112,7 +112,7 @@ data class ScoredHands(
 private fun List<Card>.calculateHands(): ScoredHands {
     val cardScores = listOf(0, 14, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
 
-    val sortedCards = sortedBy { cardScores[it.rank] }
+    val sortedCards = map { it.copy(rank = cardScores[it.rank]) }.sortedBy { it.rank }
 
     val rankFrequency = sortedCards.fold(mutableMapOf<Int, Int>()) { map, card ->
         val current = map[card.rank] ?: 0

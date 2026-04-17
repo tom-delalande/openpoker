@@ -33,6 +33,8 @@ class PokerScenarioBuilder(
             smallBlindAmount = smallBlind,
             bigBlindAmount = bigBlind,
             defaultCards = cards,
+            minPlayers = 2,
+            maxPlayers = 9,
         )
     }
 
@@ -95,6 +97,10 @@ class PokerScenarioBuilder(
         allActions.clear()
         allActions += table.rounds.flatMap { it.actions }
     }
+
+    internal fun sitDown(playerId: Int, stack: Double) {
+        table = table.addPlayer(CashGameRepository.Player(playerId, "Player $playerId", stack))
+    }
 }
 
 class PlayerActor(val playerId: Int, val builder: PokerScenarioBuilder) {
@@ -104,6 +110,7 @@ class PlayerActor(val playerId: Int, val builder: PokerScenarioBuilder) {
     fun bet(amount: Double) = builder.doAction(playerId, PlayerActionRequest.Bet(playerId, amount))
     fun raise(amount: Double) = builder.doAction(playerId, PlayerActionRequest.Raise(playerId, amount))
     fun standUp() = builder.doAction(playerId, PlayerActionRequest.StandUp(playerId))
+    fun sitDown(stack: Double) = builder.sitDown(playerId, stack)
 }
 
 fun pokerScenario(
@@ -115,7 +122,13 @@ fun pokerScenario(
     scenario: PokerScenarioBuilder.() -> Unit,
 ): PokerScenarioResult {
     val builder =
-        PokerScenarioBuilder(players, blinds.first, blinds.second, seed, stacks, cards?.split(" ")?.map { it.toCard() } ?: emptyList())
+        PokerScenarioBuilder(
+            players,
+            blinds.first,
+            blinds.second,
+            seed,
+            stacks,
+            cards?.split(" ")?.map { it.toCard() } ?: emptyList())
     builder.apply(scenario)
     return builder.run()
 }
@@ -127,6 +140,7 @@ fun PokerScenarioBuilder.dealTurn() = apply { processTable() }
 fun PokerScenarioBuilder.dealRiver() = apply { processTable() }
 fun PokerScenarioBuilder.dealShowdown() = apply { processTable() }
 fun PokerScenarioBuilder.nextStreet() = apply { processTable() }
+fun PokerScenarioBuilder.startNextHand() = apply { processTable(now = now.plusSeconds(10)) }
 
 data class PokerScenarioResult(
     val table: Table,
@@ -150,10 +164,8 @@ data class PokerScenarioResult(
 
     fun assertFinishedPots(vararg pots: Pair<Int, Double>) {
         val ended = allActions.filterIsInstance<Action.HandEnded>().single()
-        ended.playerStacks.forEach { stack ->
-            val pot = pots.first { stack.playerId == it.first }
-            assertEquals(Action.PlayerStack(pot.first, pot.second), stack)
-        }
+        val expectedStacks = pots.map { Action.PlayerStack(it.first, it.second) }
+        assertEquals(expectedStacks.sortedBy { it.playerId }, ended.playerStacks.toSet().sortedBy { it.playerId })
     }
 
     fun assertCommunityCards(vararg cards: String) {
