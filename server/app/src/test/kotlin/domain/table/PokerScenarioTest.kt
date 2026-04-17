@@ -1,9 +1,11 @@
 package domain.table
 
+import domain.model.Table
 import domain.model.Table.Round.Street
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class PokerScenarioTest {
 
@@ -185,7 +187,7 @@ class PokerScenarioTest {
             blinds = 5.0 to 10.0,
             seed = 1,
             stacks = listOf(100.0, 1000.0, 1000.0),
-            cards = "9d 2d 7s 6s 1c 12c 11c 10c 9c 2c 3c"
+            cards = "1d 1d 2s 2s 3c 3c 11s 10d 9h 2s 3c"
         ) {
             postBlinds()
             dealHoleCards()
@@ -211,6 +213,13 @@ class PokerScenarioTest {
             }
             p2().check()
             p3().check()
+            manually {
+                assertTrue(it.rounds.last().actions.last() is Table.Round.Action.HandEnded)
+                assertEquals(
+                    listOf(1 to 300.0, 2 to 890.0, 3 to 910.0),
+                    it.players.map { it.playerId to it.stack }
+                )
+            }
             startNextHand()
             postBlinds()
             dealHoleCards()
@@ -896,6 +905,38 @@ class PokerScenarioTest {
             p2().check()
             p3().check()
             p1().bet(9.0)
+        }
+    }
+
+    @Test
+    fun `player with short stack less than big blind can still raise`() {
+        val r = pokerScenario(
+            players = 2,
+            blinds = 5.0 to 10.0,
+            seed = 1,
+            stacks = listOf(20.0, 20.0)
+        ) {
+            postBlinds()
+            dealHoleCards()
+            p2().call(5.0)
+            p1().raise(10.0)
+        }
+    }
+
+    @Test
+    fun `player with short stack too small then cannot raise`() {
+        assertThrows<Exception> {
+            pokerScenario(
+                players = 2,
+                blinds = 5.0 to 10.0,
+                seed = 1,
+                stacks = listOf(10.0, 20.0)
+            ) {
+                postBlinds()
+                dealHoleCards()
+                p2().call(5.0)
+                p1().raise(10.0)
+            }
         }
     }
 

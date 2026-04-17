@@ -31,6 +31,7 @@ export interface GameState {
   error: string | null;
   currentStreet: string | null;
   winners: number[];
+  stack: number;
 }
 
 export interface GameActions {
@@ -55,6 +56,7 @@ export interface GameActions {
   setActionExpiry: (expiry: string | null) => void;
   setCurrentStreet: (street: string | null) => void;
   setWinners: (winners: number[]) => void;
+  setStack: (stack: number) => void;
   reset: () => void;
 }
 
@@ -78,6 +80,7 @@ const initialState: GameState = {
   error: null,
   currentStreet: null,
   winners: [],
+  stack: 0,
 };
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -120,6 +123,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   setActionExpiry: (expiry) => set({ actionExpiry: expiry }),
   setCurrentStreet: (street) => set({ currentStreet: street }),
   setWinners: (winners) => set({ winners }),
+  setStack: (stack) => set({ stack }),
 
   reset: () => set(initialState),
 }));

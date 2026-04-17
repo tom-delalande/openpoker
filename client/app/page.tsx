@@ -44,9 +44,12 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [playerInfo, setPlayerInfo] = useState<PlayerInfo | null>(null);
 
-  const { setAuthToken, setPlayerId, setPlayerName: setStorePlayerName, setTableId, setCurrentView } = useGameStore();
+  const { setAuthToken, setPlayerId, setPlayerName: setStorePlayerName, setTableId, setCurrentView, currentView, setStack } = useGameStore();
 
   useEffect(() => {
+    if (currentView !== 'home') return;
+
+    setIsFetchingStack(true);
     const token = localStorage.getItem('authToken');
     if (token) {
       setAuthToken(token);
@@ -56,6 +59,7 @@ export default function HomePage() {
             setPlayerInfo(data);
             setPlayerId(data.playerId);
             setStorePlayerName(data.name);
+            setStack(data.stack);
             localStorage.setItem('playerName', data.name);
           }
         })
@@ -64,7 +68,7 @@ export default function HomePage() {
     } else {
       setIsFetchingStack(false);
     }
-  }, []);
+  }, [currentView, setAuthToken, setPlayerId, setStorePlayerName, setStack]);
 
   const handleLogin = async () => {
     sounds.playMenuClick();
@@ -95,9 +99,11 @@ export default function HomePage() {
       if (playerData) {
         setPlayerInfo(playerData);
         setStorePlayerName(playerData.name);
+        setStack(playerData.stack);
       } else {
         setPlayerInfo({ playerId: data.playerId, name, stack: 0 });
         setStorePlayerName(name);
+        setStack(0);
       }
     } catch (err) {
       console.error('Login error:', err);

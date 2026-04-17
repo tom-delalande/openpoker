@@ -1,5 +1,6 @@
 package domain.tournament
 
+import app.logger
 import domain.model.Table
 import domain.table.HandHistoryRepository
 import domain.table.TableService

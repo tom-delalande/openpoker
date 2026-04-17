@@ -1,1 +1,2 @@
-- Check what happens from client POV if you go all in and then leave
+
+- I got a bug where I won a hand and then left and had less chips (after reloading)

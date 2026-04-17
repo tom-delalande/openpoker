@@ -408,9 +408,7 @@ class TableService(
                         players = players.map { player ->
                             PlayerStack(
                                 playerId = player.playerId,
-                                stack = player.stack + pots.flatMap { it.playerWins }
-                                    .filter { it.playerId == player.playerId }
-                                    .sumOf { it.winAmount },
+                                stack = player.stack,
                                 winner = pots.flatMap { it.playerWins }.any { it.playerId == player.playerId }
                             )
                         }

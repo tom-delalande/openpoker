@@ -98,9 +98,7 @@ fun Table.nextHandPlayers() = players.filterNot { it.isSittingOut }
             isSittingOut = false,
             seat = index,
             isNew = false,
-            stack = player.stack + pots.flatMap { it.playerWins }
-                .filter { it.playerId == player.playerId }
-                .sumOf { it.winAmount }
+            stack = player.stack
         )
     }
 
@@ -680,7 +678,7 @@ private fun Table.requestNextAction(now: Instant): Table {
             add(ActionOption.Bet(minAmount = min(playerStack, bigBlindAmount), maxAmount = playerStack))
         }
 
-        if (currentRaise > 0.0 && playerStack > 0.0 && (currentRaise - previousRaise) + bigBlindAmount < playerStack) {
+        if (currentRaise > 0.0 && playerStack > 0.0 && (currentRaise - previousRaise) + bigBlindAmount > 0) {
             add(
                 ActionOption.Raise(
                     minAmount = min((currentRaise - previousRaise) + bigBlindAmount, playerStack),

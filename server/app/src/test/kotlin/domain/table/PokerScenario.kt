@@ -166,6 +166,7 @@ data class PokerScenarioResult(
         val ended = allActions.filterIsInstance<Action.HandEnded>().single()
         val expectedStacks = pots.map { Action.PlayerStack(it.first, it.second) }
         assertEquals(expectedStacks.sortedBy { it.playerId }, ended.playerStacks.toSet().sortedBy { it.playerId })
+        assertEquals(expectedStacks.sortedBy { it.playerId }, table.players.map { Action.PlayerStack(it.playerId, it.stack) }.toSet().sortedBy { it.playerId })
     }
 
     fun assertCommunityCards(vararg cards: String) {

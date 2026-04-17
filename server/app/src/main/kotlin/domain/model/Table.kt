@@ -325,7 +325,8 @@ data class Table(
     }
 
     val lastActivePlayerToAct: LivePlayerInfo?
-        get() = players.filterNot { it.isNew }.find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
+        get() = players.filterNot { it.isNew }
+            .find { it.playerId == playerRoundActions.lastOrNull { it !is Round.Action.PlayerAction.DealCards }?.playerId }
 
     fun LivePlayerInfo.nextPlayerToAct(excludeAllInPlayers: Boolean = true): LivePlayerInfo {
         return activePlayers.shiftSeat(seat + 1)
@@ -345,7 +346,15 @@ data class Table(
         get() = rounds.flatMap { it.actions }.fold(listOf()) { players, action ->
             when (action) {
                 Round.Action.HandStarted -> players.map { it.copy(isNew = false) }
-                is Round.Action.HandEnded -> players.map { it.copy(isAllIn = false) }
+                is Round.Action.HandEnded -> players.map {
+                    it.copy(
+                        isAllIn = false,
+                        stack = it.stack + pots.flatMap { pot -> pot.playerWins }
+                            .filter { potWin -> potWin.playerId == it.playerId }
+                            .sumOf { pot -> pot.winAmount }
+                    )
+                }
+
                 is Round.Action.RoundStarted -> players
                     .filterNot { it.isSittingOut && !it.isAllIn }
                     .map { it.copy(contributionThisStreet = 0.0) }
@@ -358,7 +367,7 @@ data class Table(
                             seat = action.seat,
                             name = action.playerName,
                             initialStack = action.stack,
-                            isNew = players.none {  it.playerId == action.playerId},
+                            isNew = players.none { it.playerId == action.playerId },
                             stack = action.stack,
                             isAllIn = false,
                         )
